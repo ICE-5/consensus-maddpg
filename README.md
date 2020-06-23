@@ -23,3 +23,5 @@ Directly run the main.py, then the algrithm will be tested on scenario 'simple_t
 + There are 4 agents in simple_tag, including 3 predators and 1 prey. we use MADDPG to train predators to catch the prey. The prey's action can be controlled by you, in our case we set it random. 
 
 + The default setting of Multi-Agent Particle Environment(MPE) is sparse reward, you can change it to dense reward by replacing 'shape=False' to 'shape=True' in file multiagent-particle-envs/multiagent/scenarios/simple_tag.py/.
+
++ If pop out no module found error, check whether PYTHONPATH is /home/haotb/DRL/MADDPG:/home/haotb/DRL/MADDPG/multiagent-particle-envs.
