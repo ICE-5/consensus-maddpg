@@ -1,5 +1,5 @@
 import argparse
-
+import torch
 """
 Here are the param for the training
 
@@ -7,12 +7,10 @@ Here are the param for the training
 def str2bool(v):
     if isinstance(v, bool):
        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+    if v == None or v.lower() in ('no', 'false', 'f', 'n', '0'):
         return False
     else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        return True
 
 def get_args():
     parser = argparse.ArgumentParser("Reinforcement Learning experiments for multiagent environments")
@@ -42,6 +40,11 @@ def get_args():
     parser.add_argument("--evaluate", type=str, help="whether to evaluate the model. Type True or False")
     parser.add_argument("--evaluate-rate", type=int, default=1000, help="how often to evaluate model")
     args = parser.parse_args()
+    # Cuda
+    if torch.cuda.is_available():
+        dev = "cuda:0"
+    else:
+        dev = "cpu"
+    args.device = torch.device(dev)
     args.evaluate = str2bool(args.evaluate)
-
     return args

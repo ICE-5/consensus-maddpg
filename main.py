@@ -9,7 +9,6 @@ import torch
 if __name__ == '__main__':
     # get the params
     args = get_args()
-    print(args)
     env, args = make_env(args)
     runner = Runner(args, env)
     if args.evaluate:
