@@ -21,6 +21,16 @@ class MADDPG:
         self.actor_target_network.load_state_dict(self.actor_network.state_dict())
         self.critic_target_network.load_state_dict(self.critic_network.state_dict())
 
+        # Load to GPU if available
+        self.actor_network.to(args.device)
+        self.critic_network.to(args.device)
+        self.actor_target_network.to(args.device)
+        self.critic_target_network.to(args.device)
+        print(next(self.actor_network.parameters()).device,
+              next(self.critic_network.parameters()).device,
+              next(self.actor_target_network.parameters()).device,
+              next(self.critic_target_network.parameters()).device)
+
         # create the optimizer
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
