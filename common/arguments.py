@@ -4,7 +4,15 @@ import argparse
 Here are the param for the training
 
 """
-
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 def get_args():
     parser = argparse.ArgumentParser("Reinforcement Learning experiments for multiagent environments")
@@ -31,8 +39,9 @@ def get_args():
     # Evaluate
     parser.add_argument("--evaluate-episodes", type=int, default=10, help="number of episodes for evaluating")
     parser.add_argument("--evaluate-episode-len", type=int, default=100, help="length of episodes for evaluating")
-    parser.add_argument("--evaluate", type=bool, default=True, help="whether to evaluate the model")
+    parser.add_argument("--evaluate", type=str, help="whether to evaluate the model. Type True or False")
     parser.add_argument("--evaluate-rate", type=int, default=1000, help="how often to evaluate model")
     args = parser.parse_args()
+    args.evaluate = str2bool(args.evaluate)
 
     return args
