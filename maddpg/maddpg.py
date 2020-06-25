@@ -22,10 +22,14 @@ class MADDPG:
         self.critic_target_network.load_state_dict(self.critic_network.state_dict())
 
         # Load to GPU if available
-        self.actor_network.to(args.device)
-        self.critic_network.to(args.device)
-        self.actor_target_network.to(args.device)
-        self.critic_target_network.to(args.device)
+        # self.actor_network.to(args.device)
+        # self.critic_network.to(args.device)
+        # self.actor_target_network.to(args.device)
+        # self.critic_target_network.to(args.device)
+        self.actor_network.cuda()
+        self.critic_network.cuda()
+        self.actor_target_network.cuda()
+        self.critic_target_network.cuda()
         print(next(self.actor_network.parameters()).device,
               next(self.critic_network.parameters()).device,
               next(self.actor_target_network.parameters()).device,
@@ -66,7 +70,7 @@ class MADDPG:
     # update the network
     def train(self, transitions, other_agents):
         for key in transitions.keys():
-            transitions[key] = torch.tensor(transitions[key], dtype=torch.float32)
+            transitions[key] = torch.tensor(transitions[key], dtype=torch.float32, device = self.args.device)
         r = transitions['r_%d' % self.agent_id]  # 训练时只需要自己的reward
         o, u, o_next = [], [], []  # 用来装每个agent经验中的各项
         for agent_id in range(self.args.n_agents):
@@ -75,7 +79,9 @@ class MADDPG:
             o_next.append(transitions['o_next_%d' % agent_id])
 
         # calculate the target Q value function
+
         u_next = []
+
         with torch.no_grad():
             # 得到下一个状态对应的动作
             index = 0
@@ -89,7 +95,8 @@ class MADDPG:
             q_next = self.critic_target_network(o_next, u_next).detach()
 
             target_q = (r.unsqueeze(1) + self.args.gamma * q_next).detach()
-
+        # import ipdb
+        # ipdb.set_trace()
         # the q loss
         q_value = self.critic_network(o, u)
         critic_loss = (target_q - q_value).pow(2).mean()
@@ -109,8 +116,8 @@ class MADDPG:
         self.critic_optim.step()
 
         self._soft_update_target_network()
-        if self.train_step > 0 and self.train_step % self.args.save_rate == 0:
-            self.save_model(self.train_step)
+        # if self.train_step > 0 and self.train_step % self.args.save_rate == 0:
+        #     self.save_model(self.train_step)
         self.train_step += 1
 
     def save_model(self, train_step):

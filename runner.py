@@ -3,7 +3,7 @@ from agent import Agent
 from common.replay_buffer import Buffer
 import torch
 import os
-import numpy as np
+# import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -28,20 +28,30 @@ class Runner:
         return agents
 
     def run(self):
-        returns = []
+        returns = torch.zeros(0, device = self.args.device)
         for time_step in tqdm(range(self.args.time_steps)):
             # reset the environment
             if time_step % self.episode_limit == 0:
                 s = self.env.reset()
-            u = []
-            actions = []
+
+            u = torch.zeros(0, device = self.args.device)
+            actions = torch.zeros(0, device = self.args.device)
+            num_dim = 0
             with torch.no_grad():
                 for agent_id, agent in enumerate(self.agents):
                     action = agent.select_action(s[agent_id], self.noise, self.epsilon)
-                    u.append(action)
-                    actions.append(action)
+                    u = torch.cat((u, action))
+                    actions = torch.cat((actions, action))
+                    num_dim += 1
+
             for i in range(self.args.n_agents, self.args.n_players):
-                actions.append([0, np.random.rand() * 2 - 1, 0, np.random.rand() * 2 - 1, 0])
+                # actions.append([0, np.random.rand() * 2 - 1, 0, np.random.rand() * 2 - 1, 0])
+                rand_act = torch.tensor([0, torch.rand(1) * 2 - 1, 0, torch.rand(1) * 2 - 1, 0], device = self.args.device)
+                actions = torch.cat((actions, rand_act))
+                num_dim += 1
+            actions = actions.view(num_dim, -1)
+            u = u.view(len(self.agents), -1)
+
             s_next, r, done, info = self.env.step(actions)
             self.buffer.store_episode(s[:self.args.n_agents], u, r[:self.args.n_agents], s_next[:self.args.n_agents])
             s = s_next
@@ -51,16 +61,16 @@ class Runner:
                     other_agents = self.agents.copy()
                     other_agents.remove(agent)
                     agent.learn(transitions, other_agents)
-            if time_step > 0 and time_step % self.args.evaluate_rate == 0:
-                returns.append(self.evaluate())
-                plt.figure()
-                plt.plot(range(len(returns)), returns)
-                plt.xlabel('episode * ' + str(self.args.evaluate_rate / self.episode_limit))
-                plt.ylabel('average returns')
-                plt.savefig(self.save_path + '/plt.png', format='png')
-            self.noise = max(0.05, self.noise - 0.0000005)
-            self.epsilon = max(0.05, self.noise - 0.0000005)
-            np.save(self.save_path + '/returns.pkl', returns)
+            # if time_step > 0 and time_step % self.args.evaluate_rate == 0:
+            #     returns.append(self.evaluate())
+            #     plt.figure()
+            #     plt.plot(range(len(returns)), returns)
+            #     plt.xlabel('episode * ' + str(self.args.evaluate_rate / self.episode_limit))
+            #     plt.ylabel('average returns')
+            #     plt.savefig(self.save_path + '/plt.png', format='png')
+            # self.noise = max(0.05, self.noise - 0.0000005)
+            # self.epsilon = max(0.05, self.noise - 0.0000005)
+            # np.save(self.save_path + '/returns.pkl', returns)
 
     def evaluate(self):
         returns = []
