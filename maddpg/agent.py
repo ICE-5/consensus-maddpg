@@ -26,21 +26,51 @@ class Agent:
         self.target_critic = BaseNetwork(critic_input_dim, critic_out_dim,
                                     hidden_dim=args.hidden_dim,
                                     normalize_input=args.normalize_input)
-        # TODO: discuss buffer config                          
-        self.buffer = ReplayBuffer(args.buffer_size)
-        self.args = args
-        
+        self.target_actor.load_state_dict(self.actor.state_dict())
+        self.target_critic.load_state_dict(self.critic.state_dict())
 
-    def select_action(self, obs):
-        if np.random.uniform() < self.args.epsilon:
-            action = torch.FloatTensor(self.args.action_dim).uniform_(self.args.action_bound_min, self.args.action_bound_max)
+        self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.args.lr_actor)
+        self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.args.lr_critic)  
+
+        # self.buffer = ReplayBuffer(args.buffer_size)
+        self.args = args
+
+
+    def get_action(self, obs, is_target=False, decode=False):
+        obs = torch.tensor(obs, dtype=torch.float32)
+        with torch.no_grad():
+            if is_target:
+                action = self.target_actor(obs).detach()
+            else:
+                action = self.actor(obs).detach()
+
+        if decode:
+            action = torch.argmax(action).numpy()
         else:
-            obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
-            action = self.actor(obs).squeeze(0)
-            noise = torch.FloatTensor(self.args.action_dim).normal_(0, self.args.norse_rate)
-            action += noise
-            action = torch.clamp(action, self.args.action_bound_min, self.args.action_bound_max)
-            
+            softmax = torch.nn.Softmax(0)
+            action = softmax(action)
+        
         return action
 
+    
+    def get_q(self, x, target=False):
+        x = torch.tensor(obs, dtype=torch.float32)
+        with torch.no_grad():
+            if target:
+                q = self.target_critic(x).detach()
+            else:
+                q = self.critic(x).detach()
+        return q
 
+
+    def target_update(self, tau, actor=True):
+        if actor:
+            target = self.target_actor
+            source = self.actor
+        else:
+            target = self.target_critic
+            source = self.critic
+
+        for target_param, param in zip(target.parameters(), source.parameters()):
+            target_param.data.copy_(target_param.data * (1 - tau) + param.data * tau)
+    

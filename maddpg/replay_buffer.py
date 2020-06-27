@@ -2,31 +2,54 @@ from collections import deque
 import random
 import pickle
 
+from utils.helper import one_hot
+
+
 class ReplayBuffer(object):
-    def __init__(self, buffer_size):
-        self.buffer_size = buffer_size
+    def __init__(self, args):
+        self.buffer_size = args.buffer_size
         self.num_transitions = 0
+        self.discrete_action = args.discrete_action
+        self.n = args.num_agents
+        self.od = args.obs_dim
+        self.ad = args.action_dim
+
         self.buffer = deque()
-        
-    def get_batch_idx(self, batch_size):
-        """Sample batch_size indices given current buffer content
+
+        self.curr_obs_ids = 0                                       # start idx of curr_obs_n in transition
+        self.curr_obs_ide = self.n * self.od                        # end idx of curr_obs_n in transition
+        self.next_obs_ids = self.curr_obs_ide
+        self.next_obs_ide = self.next_obs_ids + self.n * self.od
+        self.action_ids = self.next_obs_ide
+        self.action_ide = self.action_ids + self.n * self.ad
+        self.reward_ids = self.action_ide
+        self.reward_ide = self.reward_ids + self.n
+        self.done_ids = self.reward_ide
+        self.done_ide = self.done_ids + self.n
+
+    def sample_minibatch(self, batch_size):
+        """Sample batch_size minibatch given current buffer content
         Args:
             batch_size (int): num of indices to sample
         Returns:
             list, int: list of sampled indices
         """        
         if self.num_transitions < batch_size:
-            return random.sample(self.num_transitions, self.num_transitions)
+            minibatch = random.sample(self.buffer, self.num_transitions)
         else:
-            return random.sample(self.num_transitions, batch_size)
+            minibatch = random.sample(self.buffer, batch_size)
+        
+        minibatch = torch.tensor(minibatch, dtype=torch.float32)
+        curr_obs_n = minibatch[:, self.curr_obs_ids : self.curr_obs_ide]
+        next_obs_n = minibatch[:, self.next_obs_ids : self.next_obs_ide]
+        action_n = minibatch[:, self.action_ids : self.action_ide]
+        reward_n = minibatch[:, self.reward_ids : self.reward_ide]
+        done_n = minibatch[:, self.done_ids : self.done_ide]
+
+        return curr_obs_n, next_obs_n, action_n, reward_n, done_n
     
-    def get_selected_sample(self, idxs):
-        """Retrieve sample from buffer using given indices
-        Args:
-            idxs (list, int): list of indices
-        Returns:
-            list, xx: list of samples retrieved from buffer
-        """        
+
+    def get_batch(self, idxs):
         return self.buffer[idxs]
 
     def size(self):
@@ -35,14 +58,28 @@ class ReplayBuffer(object):
     def count(self):
         return self.num_transitions
 
-    def add(self, state, action, reward, new_state, done):
-        transition = (state, action, reward, new_state, done)
+    def add(self, curr_obs_n, next_obs_n, action_n, reward_n, done_n):
+        curr_obs_n = torch.tensor(curr_obs_n, dtype=torch.float32).flatten()
+        next_obs_n = torch.tensor(next_obs_n, dtype=torch.float32).flatten()
+
+        if self.discrete_action:
+            action_n = one_hot(action_n, self.args.action_dim, is_tensor=True)
+            action_n = torch.flatten(action_n)
+        else:
+            action_n = torch.tensor(action_n, dtype=torch.float32).flatten()
+
+        reward_n = torch.tensor(reward_n, dtype=torch.float32).flatten()
+        done_n = torch.tensor(reward_n, dtype=torch.float32).flatten()
+
+        transition = torch.cat((curr_obs_n, next_obs_n, action_n, reward_n, done_n))
+
         if self.num_transitions < self.buffer_size:
-            self.buffer.append(transition)
             self.num_transitions += 1
         else:
             self.buffer.popleft()
-            self.buffer.append(transition)
+
+        self.buffer.append(transition)
+
 
     def erase(self):
         self.buffer = deque()

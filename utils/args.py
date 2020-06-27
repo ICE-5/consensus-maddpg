@@ -22,6 +22,8 @@ def get_args():
     parser.add_argument("--noise-rate", type=float, default=0.1, help="noise rate for sampling from a standard normal distribution ")
     parser.add_argument("--gamma", type=float, default=0.95, help="discount factor")
     parser.add_argument("--tau", type=float, default=0.01, help="parameter for updating the target network")
+    parser.add_argument("--target-update-rate", type=int, default=5, help="num of episodes between each target update")
+
 
     # Replay buffer and sample
     parser.add_argument("--buffer-size", type=int, default=int(5e5), help="number of transitions can be stored in buffer")

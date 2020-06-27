@@ -1,12 +1,13 @@
-from common.args import get_args
-from common.env import make_env
+from utils.args import get_args
+from utils.env import make_env
+from maddpg.maddpg import MADDPG
 
 
 if __name__ == "__main__":
     args = get_args()
     env, args = make_env(args)
 
-
-    # TODO: run 
+    model = MADDPG(args, env)
+    model.train()
 
  
