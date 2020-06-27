@@ -8,6 +8,7 @@ if __name__ == "__main__":
     env, args = make_env(args)
 
     model = MADDPG(args, env)
+    model.memory_burnin()
     model.train()
 
  

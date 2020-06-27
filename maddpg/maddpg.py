@@ -16,7 +16,9 @@ class MADDPG:
         self.ad = args.action_dim       # action dim
         self.od = args.obs_dim          # obs dim
         self.batch_size = args.batch_size
-
+        
+        print(f'od: {self.od}')
+        print(f'ad: {self.ad}')
         self.gamma = args.gamma
         self.env = env
         self.agents = [Agent(args) for i in range(self.n)]
@@ -101,7 +103,8 @@ class MADDPG:
             step = 0
             curr_obs_n = self.env.reset()
             while True:
-                action_n = [agent.get_action(curr_obs_n[i], decode=True) for i, agent in enumerate(self.agents) ]
+                # action_n = [agent.get_action(curr_obs_n[:, i*self.od : (i+1)*self.od], decode=True) for i, agent in enumerate(self.agents)]
+                action_n = [agent.get_action(curr_obs_n[i], decode=True) for i, agent in enumerate(self.agents)]
                 next_obs_n, reward_n, done_n, _ = self.env.step(action_n)
 
                 action_n = one_hot(action_n, self.args.action_dim)
