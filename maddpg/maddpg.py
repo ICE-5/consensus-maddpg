@@ -1,5 +1,8 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import os
+import numpy as np
 
 from .agent import Agent
 from .replay_buffer import ReplayBuffer
@@ -27,50 +30,51 @@ class MADDPG:
     def agent_critic_loss(self, agent_idx, curr_obs_n, next_obs_n, action_n, reward_n):
         # calculate y
         o = next_obs_n
-        a = torch.empty((self.batch_size, self.n*self.ad), dtype=torch.float32)
+        a = []
         for i, agent in enumerate(self.agents):
             curr_obs = curr_obs_n[:, i*self.ad : (i+1)*self.ad]
-            action = agent.get_action(curr_obs, is_target=True, explore=False)
-            a[:, i*self.ad : (i+1)*self.ad] = action
-        y = torch.cat([o, a])
-        with torch.no_grad():
-            y = self.agents[agent_idx].get_q(y, is_target=True, explore=False)
+            action = agent.get_action(curr_obs, is_target=True)
+            a.append(action)
+        y = torch.cat([o, a]).flatten()
+        y = self.agents[agent_idx].get_q(y, is_target=True)
         y = self.gamma * y + reward_n[:, agent_idx]
 
         # calculate goal_y
         goal_o = curr_obs_n
         goal_a = action_n
         goal_y = torch.cat([goal_o, goal_a])
-        with torch.no_grad():
-            goal_y = self.agents[agent_idx].get_q(y, is_target=False, explore=False)
+        goal_y = self.agents[agent_idx].get_q(y, is_target=False)
         
-        # square loss
-        return (y - goal_y).pow(2).mean()
+        return F.mse_loss(goal_y, y)
     
 
     def agent_actor_loss(self, agent_idx, curr_obs_n, action_n):
         o = curr_obs_n
         a = action_n
 
-        with torch.no_grad():
-            agent_curr_obs = curr_obs_n[:, agent_idx*self.od : (agent_idx+1)*self.od]
-            agent_action = self.agents[agent_idx].get_action(agent_curr_obs, is_target=False, explore=False, decode=False)
-            a[:, agent_idx*self.ad : (agent_idx+1)*self.ad] = agent_action
+        agent_curr_obs = curr_obs_n[:, agent_idx*self.od : (agent_idx+1)*self.od]
+        agent_action = self.agents[agent_idx].get_action(agent_curr_obs, is_target=False)
+        a[:, agent_idx*self.ad : (agent_idx+1)*self.ad] = agent_action
 
-            loss = - self.agents[agent_idx].critic(torch.cat([o, a])).mean()
+        loss = - self.agents[agent_idx].get_q(torch.cat([o, a]), is_target=False).mean()
         return loss
 
     
     def agent_update(self, agent_idx):
+        # get minibatch sample
         curr_obs_n, next_obs_n, action_n, reward_n, _ = self.buffer.sample_minibatch(self.batch_size)
-
+        # update critic
+        agent_critic_loss = self.agent_critic_loss(agent_idx, curr_obs_n, next_obs_n, action_n, reward_n)
         self.agents[agent_idx].critic_optim.zero_grad()
-        self.agent_critic_loss(agent_idx, curr_obs_n, next_obs_n, action_n, reward_n).backward()
+        agent_critic_loss.backward()
         self.agents[agent_idx].critic_optim.step()
-        
+        # update actor
+        agent_actor_loss = self.agent_actor_loss(agent_idx, curr_obs_n, action_n)
         self.agents[agent_idx].actor_optim.zero_grad()
-        self.agent_actor_loss(agent_idx, curr_obs_n, action_n).backward()
+        agent_actor_loss.backward()
         self.agents[agent_idx].actor_optim.step()
+
+        return agent_critic_loss.item(), agent_actor_loss.item()
     
 
     def agent_target_update(self, agent_idx, tau):
@@ -95,16 +99,22 @@ class MADDPG:
                 done = all(done_n)
                 terminal = (step >= self.args.max_episode_len)
 
-                for i in self.n:
-                    self.agent_update(i)
-                
-                if done or terminal:
-                    break
+                critic_loss_list, actor_loss_list = [], []
 
-            if episode % self.args.target_update_rate:
+                for i in self.n:
+                    critic_loss, actor_loss = self.agent_update(i)
+                    critic_loss_list.append(critic_loss)
+                    actor_loss_list.append(actor_loss)
+                
                 for i in self.n:
                     self.agent_target_update(i, self.args.tau)
+                
+                if done or terminal:
+                    if episode % 100 == 0:
+                        print(f'episode: {episode}, step: {step}\t\t critic loss: {np.sum(critic_loss_list)}\tactor loss: {np.sum(actor_loss_list)}')
+                    break
     
+            
     
                 
                 

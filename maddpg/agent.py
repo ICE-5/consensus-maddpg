@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import os
 import numpy as np
 
@@ -13,13 +15,15 @@ class Agent:
         critic_out_dim = 1
         self.actor = BaseNetwork(actor_input_dim, actor_out_dim, 
                                     hidden_dim=args.hidden_dim,
-                                    normalize_input=args.normalize_input)
+                                    normalize_input=args.normalize_input, 
+                                    out_func=F.tanh)
         self.critic = BaseNetwork(critic_input_dim, critic_out_dim,
                                     hidden_dim=args.hidden_dim,
                                     normalize_input=args.normalize_input)
         self.target_actor = BaseNetwork(actor_input_dim, actor_out_dim, 
                                     hidden_dim=args.hidden_dim,
-                                    normalize_input=args.normalize_input)
+                                    normalize_input=args.normalize_input,
+                                    out_func=F.tanh)
         self.target_critic = BaseNetwork(critic_input_dim, critic_out_dim,
                                     hidden_dim=args.hidden_dim,
                                     normalize_input=args.normalize_input)
@@ -34,11 +38,11 @@ class Agent:
 
     def get_action(self, obs, is_target=False, decode=False):
         obs = torch.tensor(obs, dtype=torch.float32)
-        with torch.no_grad():
-            if is_target:
-                action = self.target_actor(obs).detach()
-            else:
-                action = self.actor(obs).detach()
+        # with torch.no_grad():
+        if is_target:
+            action = self.target_actor.forward(obs)
+        else:
+            action = self.actor.forward(obs)
 
         if decode:
             action = torch.argmax(action).numpy()
@@ -51,11 +55,11 @@ class Agent:
     
     def get_q(self, x, is_target=False):
         x = torch.tensor(x, dtype=torch.float32)
-        with torch.no_grad():
-            if is_target:
-                q = self.target_critic(x).detach()
-            else:
-                q = self.critic(x).detach()
+        # with torch.no_grad():
+        if is_target:
+            q = self.target_critic.forward(x)
+        else:
+            q = self.critic.forward(x)
         return q
 
 
