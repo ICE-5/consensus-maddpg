@@ -4,7 +4,6 @@ import numpy as np
 
 from network import BaseNetwork
 from replay_buffer import ReplayBuffer
-from common.utils import EpsilonNormalActionNoise
 
 class Agent:
     def __init__(self, args):
@@ -29,8 +28,8 @@ class Agent:
         self.target_actor.load_state_dict(self.actor.state_dict())
         self.target_critic.load_state_dict(self.critic.state_dict())
 
-        self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.args.lr_actor)
-        self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.args.lr_critic)  
+        self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=args.lr_actor)
+        self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=args.lr_critic)  
 
         self.args = args
 
@@ -53,9 +52,9 @@ class Agent:
 
     
     def get_q(self, x, is_target=False):
-        x = torch.tensor(obs, dtype=torch.float32)
+        x = torch.tensor(x, dtype=torch.float32)
         with torch.no_grad():
-            if target:
+            if is_target:
                 q = self.target_critic(x).detach()
             else:
                 q = self.critic(x).detach()
