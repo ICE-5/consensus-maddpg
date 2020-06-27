@@ -16,7 +16,8 @@ def make_env(args):
     args.action_dim = env.action_space[0].n
     args.num_players = env.n
     args.num_agents = env.n - args.num_adversaries      # TODO: check adversary related
-    args.action_bound_max = 1
-    args.action_bound_min = -1
+    
+    # args.action_bound_max = 1
+    # args.action_bound_min = -1
 
     return env, args

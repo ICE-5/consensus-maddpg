@@ -18,7 +18,11 @@ class MADDPG:
         self.agents = [Agent(args) for i in range(self.n)]
         self.buffer = ReplayBuffer(args)
         self.args = args
-        
+    
+    def memory_burnin(self):
+        # TODO: add burn-in process to buffer
+        pass
+
 
     def agent_critic_loss(self, agent_idx, curr_obs_n, next_obs_n, action_n, reward_n):
         # calculate y
@@ -61,7 +65,7 @@ class MADDPG:
         curr_obs_n, next_obs_n, action_n, reward_n, _ = self.buffer.sample_minibatch(self.batch_size)
 
         self.agents[agent_idx].critic_optim.zero_grad()
-        self.agent_critic_loss(agent_idx, curr_obs_n, next_obs_n, action_n, reward_n)
+        self.agent_critic_loss(agent_idx, curr_obs_n, next_obs_n, action_n, reward_n).backward()
         self.agents[agent_idx].critic_optim.step()
         
         self.agents[agent_idx].actor_optim.zero_grad()
