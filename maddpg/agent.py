@@ -32,7 +32,6 @@ class Agent:
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.args.lr_critic)  
 
-        # self.buffer = ReplayBuffer(args.buffer_size)
         self.args = args
 
 
@@ -53,7 +52,7 @@ class Agent:
         return action
 
     
-    def get_q(self, x, target=False):
+    def get_q(self, x, is_target=False):
         x = torch.tensor(obs, dtype=torch.float32)
         with torch.no_grad():
             if target:
