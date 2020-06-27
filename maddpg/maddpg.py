@@ -32,7 +32,9 @@ class MADDPG:
             done = False
             curr_obs_n = self.env.reset()
             while not done:
-                action_n = self.env.action_space.sample()
+                # action_n = np.random.randint(0, 2, (self.n, self.ad))
+                action_n = [self.env.action_space[i].sample() for i in range(self.n)]
+                action_n = one_hot(action_n, self.ad)
                 next_obs_n, reward_n, done_n, _ = self.env.step(action_n)
 
                 action_n = one_hot(action_n, self.args.action_dim)
