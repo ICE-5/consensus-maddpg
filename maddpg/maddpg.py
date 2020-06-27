@@ -1,8 +1,8 @@
 import torch
 import os
 
-from agent import Agent
-from replay_buffer import ReplayBuffer
+from .agent import Agent
+from .replay_buffer import ReplayBuffer
 from utils.helper import one_hot, add_noise
 
 
@@ -83,7 +83,7 @@ class MADDPG:
             step = 0
             curr_obs_n = self.env.reset()
             while True:
-                action_n = [agent.get_action(curr_obs_n[i]) for i, agent in enumerate(self.agents) ]
+                action_n = [agent.get_action(curr_obs_n[i], decode=True) for i, agent in enumerate(self.agents) ]
                 next_obs_n, reward_n, done_n, _ = self.env.step(action_n)
 
                 action_n = one_hot(action_n, self.args.action_dim)

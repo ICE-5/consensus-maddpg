@@ -2,8 +2,6 @@ from collections import deque
 import random
 import pickle
 
-from utils.helper import one_hot
-
 
 class ReplayBuffer(object):
     def __init__(self, args):
@@ -63,7 +61,6 @@ class ReplayBuffer(object):
         next_obs_n = torch.tensor(next_obs_n, dtype=torch.float32).flatten()
 
         if self.discrete_action:
-            action_n = one_hot(action_n, self.args.action_dim, is_tensor=True)
             action_n = torch.flatten(action_n)
         else:
             action_n = torch.tensor(action_n, dtype=torch.float32).flatten()

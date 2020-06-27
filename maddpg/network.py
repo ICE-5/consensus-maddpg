@@ -7,19 +7,20 @@ class BaseNetwork(nn.Module):
     """
     def __init__(self, input_dim, out_dim, 
                     hidden_dim=64, 
-                    nonlinear=F.relu, 
-                    normalize_input=True,
-                    discrete_action=True):
+                    mid_func=F.relu,
+                    out_func=lambda x: x, 
+                    normalize_input=True):
         """
         Inputs:
             input_dim (int): imput dimensions
             out_dim (int): output dimensions
             hidden_dim (int): hidden layer dimension
-            nonlinear (PyTorch function): nonlinear functions for hidden layers
+            mid_func (PyTorch function): activation function for hidden layers
+            out_func (PyTorch function): activation function for output layer
         """
         super(BaseNetwork, self).__init__()
 
-        self.nonlinear = nonlinear
+        self.mid_func = mid_func
 
         # normalize input
         if normalize_input:
@@ -35,12 +36,7 @@ class BaseNetwork(nn.Module):
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.out = nn.Linear(hidden_dim, out_dim)
 
-        if not discrete_action:
-            # initialize small to prevent saturation
-            self.fc3.weight.data.uniform_(-3e-3, 3e-3)
-            self.out_func = F.tanh
-        else:  # logits for discrete action (will softmax later)
-            self.out_func = lambda x: x
+        # TODO: add re-weighting / normalization tricks for neural net 
 
     def forward(self, X):
         """
@@ -49,8 +45,8 @@ class BaseNetwork(nn.Module):
         Outputs:
             out (PyTorch Matrix): network output
         """
-        x = self.nonlinear(self.fc1(self.in_fn(X)))
-        x = self.nonlinear(self.fc2(x))
-        x = self.nonlinear(self.fc3(x))
+        x = self.mid_func(self.fc1(self.in_fn(X)))
+        x = self.mid_func(self.fc2(x))
+        x = self.mid_func(self.fc3(x))
         out = self.out_func(self.out(x))
         return out

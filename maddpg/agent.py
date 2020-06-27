@@ -2,8 +2,8 @@ import torch
 import os
 import numpy as np
 
-from network import BaseNetwork
-from replay_buffer import ReplayBuffer
+from .network import BaseNetwork
+from .replay_buffer import ReplayBuffer
 
 class Agent:
     def __init__(self, args):
@@ -13,15 +13,13 @@ class Agent:
         critic_out_dim = 1
         self.actor = BaseNetwork(actor_input_dim, actor_out_dim, 
                                     hidden_dim=args.hidden_dim,
-                                    normalize_input=args.normalize_input,
-                                    discrete_action=args.discrete_action)
+                                    normalize_input=args.normalize_input)
         self.critic = BaseNetwork(critic_input_dim, critic_out_dim,
                                     hidden_dim=args.hidden_dim,
                                     normalize_input=args.normalize_input)
         self.target_actor = BaseNetwork(actor_input_dim, actor_out_dim, 
                                     hidden_dim=args.hidden_dim,
-                                    normalize_input=args.normalize_input,
-                                    discrete_action=args.discrete_action)
+                                    normalize_input=args.normalize_input)
         self.target_critic = BaseNetwork(critic_input_dim, critic_out_dim,
                                     hidden_dim=args.hidden_dim,
                                     normalize_input=args.normalize_input)
