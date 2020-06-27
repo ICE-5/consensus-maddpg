@@ -4,10 +4,11 @@ import torch.nn.functional as F
 import os
 import numpy as np
 
+
 from .agent import Agent
 from .replay_buffer import ReplayBuffer
 from utils.helper import one_hot, add_noise
-
+from copy import deepcopy
 
 class MADDPG:
     def __init__(self, args, env):    
@@ -24,7 +25,20 @@ class MADDPG:
     
     def memory_burnin(self):
         # TODO: add burn-in process to buffer
-        pass
+        counter = 0
+        while counter < self.args.buffer_burnin:
+            done = False
+            curr_obs_n = self.env.reset()
+            while not done:
+                action_n = self.env.action_space.sample()
+                next_obs_n, reward_n, done_n, _ = self.env.step(action_n)
+
+                action_n = one_hot(action_n, self.args.action_dim)
+                self.buffer.add(curr_obs_n, next_obs_n, action_n, reward_n, done_n)
+
+                curr_obs_n = deepcopy(next_obs_n)
+                counter +=1
+
 
 
     def agent_critic_loss(self, agent_idx, curr_obs_n, next_obs_n, action_n, reward_n):
@@ -94,6 +108,7 @@ class MADDPG:
                 action_n = add_noise(action_n)
 
                 self.buffer.add(curr_obs_n, next_obs_n, action_n, reward_n, done_n)
+                curr_obs_n = deepcopy(next_obs_n)
 
                 step += 1
                 done = all(done_n)
