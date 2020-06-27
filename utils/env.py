@@ -19,5 +19,14 @@ def make_env(args):
     
     # args.action_bound_max = 1
     # args.action_bound_min = -1
+    
+    print('-'*100)
+    print(f'num of player:\t\t {env.n}')
+    print(f'num of agent:\t\t {args.num_agents}')
+    print(f'obs dim:\t\t {args.obs_dim}')
+    print(f'action dim:\t\t {args.action_dim}')
+    print(f'len action space:\t {len(env.action_space)}')
+    print(f'len obs space:\t\t {len(env.observation_space)}')
+    print('-'*100)
 
     return env, args

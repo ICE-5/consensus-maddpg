@@ -13,7 +13,7 @@ def get_args():
     parser.add_argument("--normalize-input", type=bool, default=True, help="whether to normalize input for network")
     parser.add_argument("--discrete-action", type=bool, default=False, help="whether to output discrete action")
 
-    parser.add_argument("--num-adversaries", type=int, default=1, help="number of adversaries")
+    parser.add_argument("--num-adversaries", type=int, default=0, help="number of adversaries")
 
     # Core training parameters
     parser.add_argument("--lr-actor", type=float, default=1e-4, help="learning rate of actor")

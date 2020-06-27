@@ -1,3 +1,5 @@
+import torch
+
 from collections import deque
 import random
 import pickle

@@ -17,8 +17,6 @@ class MADDPG:
         self.od = args.obs_dim          # obs dim
         self.batch_size = args.batch_size
         
-        print(f'od: {self.od}')
-        print(f'ad: {self.ad}')
         self.gamma = args.gamma
         self.env = env
         self.agents = [Agent(args) for i in range(self.n)]
@@ -32,17 +30,19 @@ class MADDPG:
             done = False
             curr_obs_n = self.env.reset()
             while not done:
-                # action_n = np.random.randint(0, 2, (self.n, self.ad))
-                action_n = [self.env.action_space[i].sample() for i in range(self.n)]
+                action_n = [self.env.action_space[i].sample() for i in range(len(self.env.action_space))]
                 action_n = one_hot(action_n, self.ad)
                 next_obs_n, reward_n, done_n, _ = self.env.step(action_n)
 
-                action_n = one_hot(action_n, self.args.action_dim)
+                tmp = [curr_obs_n[i].shape[0] for i in range(self.n)]
+                print(tmp)
+
                 self.buffer.add(curr_obs_n, next_obs_n, action_n, reward_n, done_n)
 
                 curr_obs_n = deepcopy(next_obs_n)
                 counter +=1
-
+                print('added')
+                done = any(done_n)
 
 
     def agent_critic_loss(self, agent_idx, curr_obs_n, next_obs_n, action_n, reward_n):
