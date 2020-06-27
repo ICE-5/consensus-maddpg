@@ -11,7 +11,7 @@ from utils.helper import one_hot, add_noise
 
 class MADDPG:
     def __init__(self, args, env):    
-        self.n = args.num_agent         # num of agents
+        self.n = args.num_agents         # num of agents
         self.ad = args.action_dim       # action dim
         self.od = args.obs_dim          # obs dim
         self.batch_size = args.batch_size

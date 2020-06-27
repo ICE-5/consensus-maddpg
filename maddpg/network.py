@@ -45,7 +45,7 @@ class BaseNetwork(nn.Module):
         Outputs:
             out (PyTorch Matrix): network output
         """
-        x = self.mid_func(self.fc1(self.in_fn(X)))
+        x = self.mid_func(self.fc1(self.in_func(X)))
         x = self.mid_func(self.fc2(x))
         x = self.mid_func(self.fc3(x))
         out = self.out_func(self.out(x))

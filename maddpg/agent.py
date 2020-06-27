@@ -37,7 +37,7 @@ class Agent:
 
 
     def get_action(self, obs, is_target=False, decode=False):
-        obs = torch.tensor(obs, dtype=torch.float32)
+        obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(1)
         # with torch.no_grad():
         if is_target:
             action = self.target_actor.forward(obs)
