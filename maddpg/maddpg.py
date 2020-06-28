@@ -47,7 +47,7 @@ class MADDPG:
                 curr_obs_n = deepcopy(next_obs_n)
                 
                 counter +=1
-                done = any(done_n)
+                done = all(done_n)
                 if done or counter >= self.burnin_size:
                     break
         print(f'-----> replay buffer. finish burn-in memory.\t\tburn-in size: {counter}\ttime: {time.time()-start}')
@@ -136,14 +136,13 @@ class MADDPG:
                 act_n = add_noise(act_n)
 
                 # BUG
-                done = any(done_n)
+                done = all(done_n)
                 if not done:
                     for i in range(self.n):
                         self.agents[i].buffer.add(curr_obs_n[i], act_n[i], next_obs_n[i], reward_n[i], done_n[i])
                     curr_obs_n = deepcopy(next_obs_n)
 
                 step += 1
-                # done = any(done_n)
                 terminal = (step >= self.max_episode_len)
 
                 critic_loss_list, actor_loss_list = [], []
@@ -157,10 +156,11 @@ class MADDPG:
                     self.agent_target_update(i, self.tau)
                 
                 if done or terminal:
-                    if episode % 100 == 0:
+                    if episode % 1000 == 0:
                         print(f'episode: {episode}, step: {step}\t\t critic loss: {np.sum(critic_loss_list)}\tactor loss: {np.sum(actor_loss_list)}')
                     break
     
+
 
     def _location(self, idx, is_action=False):
         if is_action:
