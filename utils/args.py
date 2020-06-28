@@ -13,7 +13,7 @@ def get_args():
     parser.add_argument("--normalize-input", type=bool, default=True, help="whether to normalize input for network")
     parser.add_argument("--discrete-action", type=bool, default=False, help="whether to output discrete action")
 
-    parser.add_argument("--num-adversaries", type=int, default=0, help="number of adversaries")
+    parser.add_argument("--num-adversaries", type=int, default=1, help="number of adversaries, check MPE for specified info")
 
     # Core training parameters
     parser.add_argument("--lr-actor", type=float, default=1e-4, help="learning rate of actor")
@@ -27,7 +27,7 @@ def get_args():
 
     # Replay buffer and sample
     parser.add_argument("--buffer-size", type=int, default=int(5e5), help="number of transitions can be stored in buffer")
-    parser.add_argument("--buffer-burnin", type=int, default=int(2e5), help="number of transitions to burnin")
+    parser.add_argument("--burnin-size", type=int, default=int(1e3), help="number of transitions to burnin")
     parser.add_argument("--batch-size", type=int, default=256, help="number of transitions to sample at each train")
     
 
