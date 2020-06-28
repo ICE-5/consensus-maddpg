@@ -39,7 +39,6 @@ class Agent:
             act = self.target_actor.forward(obs)
         else:
             act = self.actor.forward(obs)
-
         softmax = torch.nn.Softmax(0)
         act = softmax(act)
 

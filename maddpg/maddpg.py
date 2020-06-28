@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os, time
 import numpy as np
+from tqdm import tqdm
 
 from .agent import Agent
 from .replay_buffer import ReplayBuffer
@@ -10,7 +11,8 @@ from utils.helper import *
 from copy import deepcopy
 
 class MADDPG:
-    def __init__(self, args, env):    
+    def __init__(self, args, env):
+        self.args = args
         self.n = args.num_agents
         self.act_dim = args.act_dim
         self.obs_dim_arr = args.obs_dim_arr
@@ -123,7 +125,6 @@ class MADDPG:
         self.agents[agent_id].actor_optim.zero_grad()
         agent_actor_loss.backward()
         self.agents[agent_id].actor_optim.step()
-        
         return agent_critic_loss.item(), agent_actor_loss.item()
     
 
@@ -133,11 +134,11 @@ class MADDPG:
         self.agents[agent_id].target_update(tau, is_actor=True)
         self.agents[agent_id].target_update(tau, is_actor=False)
 
-
     def train(self):
         step = 0
         total_critic_loss, total_actor_loss = 0., 0.
-        for episode in range(self.num_episodes):
+        rewards, rewards_frd, rewards_adv = [], [], []
+        for episode in tqdm(range(self.num_episodes)):
             curr_obs_n = self.env.reset()
             episode_len = 0
             while True:
@@ -164,14 +165,53 @@ class MADDPG:
                 
                 for i in range(self.n):
                     self.agent_target_update(i, self.tau, step)
-            
-                        
+
                 if step % self.update_rate == 0:
-                    print(f'episode: {episode}\t step: {step}\t\t critic loss: {total_critic_loss}\t actor loss: {total_actor_loss}')
+                    # print(f'episode: {episode}\t step: {step}\t\t critic loss: {total_critic_loss}\t actor loss: {total_actor_loss}')
                     total_critic_loss, total_actor_loss = 0., 0.
                 
                 if done or terminal:
                     break
+            if episode % self.args.evaluate_rate == 0:
+                r_avg, r_frd, r_adv = self.evaluate()
+                rewards.append(r_avg)
+                rewards_frd.append(r_frd)
+                rewards_adv.append(r_adv)
+                print(f"episode: {episode}\t total reward :{r_avg}\t friend reward :{r_frd}\t adv reward :{r_adv}")
+
+    '''
+    Return three rewards: average reward among episodes, average reward among episodes and num_friends, average reward among episodes and num_advesaries, 
+    '''
+    def evaluate(self):
+        rewards_frd, rewards_adv, rewards = [], [], []
+        for episodes in range(self.args.evaluate_num_episodes):
+            curr_obs_n = self.env.reset()
+            episode_len = 0
+            reward_frd, reward_adv, reward = 0., 0., 0.
+            while True:
+                act_n = [self.agents[i].get_action(curr_obs_n[i], is_target=False, is_argmax=True) for i in range(self.n)]
+                act_n = one_hot(act_n, self.act_dim)
+                curr_obs_n, reward_n, done_n, _ = self.env.step(act_n)
+
+                # Assume first k are friends, then the rest are adversaries.
+                if self.args.num_adversaries != 0:
+                    reward_adv += sum(reward_n[self.args.num_friends + 1 :])
+                reward_frd += sum(reward_n[: self.args.num_friends + 1])
+                reward = reward_frd + reward_adv
+
+                episode_len += 1
+                done = all(done_n)
+                terminal = episode_len > self.args.evaluate_episode_len
+                if done or terminal:
+                    rewards.append(reward)
+                    rewards_frd.append(reward_frd)
+                    rewards_adv.append(reward_adv)
+                    break
+                # print(f"evaluate {episodes}, len {episode_len}")
+
+        return sum(rewards) / self.args.evaluate_num_episodes, \
+               sum(rewards_frd) / (self.args.evaluate_num_episodes * self.args.num_friends), \
+               sum(rewards_adv) / (self.args.evaluate_num_episodes * self.args.num_adversaries)
 
 
     def _location(self, idx, is_action=False):

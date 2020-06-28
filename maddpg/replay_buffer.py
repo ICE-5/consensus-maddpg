@@ -51,7 +51,6 @@ class ReplayBuffer(object):
         done     = torch.FloatTensor((done, )).flatten().unsqueeze(0)
 
         transition = [curr_obs, act, next_obs, reward, done]        # act is in one-hot form
-        
         if self.num_transitions < self.buffer_size:
             self.num_transitions += 1
         else:

@@ -12,7 +12,7 @@ class Actor(nn.Module):
     def __init__(self, obs_dim, act_dim, 
                     hidden_dim=64, 
                     mid_func=torch.relu,
-                    out_func=torch.tanh, 
+                    out_func=torch.tanh,
                     normalize_input=False):
         """
         Inputs:
