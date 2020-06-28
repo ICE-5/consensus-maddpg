@@ -11,14 +11,18 @@ from copy import deepcopy
 
 class MADDPG:
     def __init__(self, args, env):    
-        self.n = args.num_agents        # num of agents
+        self.n = args.num_agents
         self.act_dim = args.act_dim
         self.obs_dim_arr = args.obs_dim_arr
 
         self.batch_size = args.batch_size
-        self.burnin_size = args.burnin_size
         self.num_episodes = args.num_episodes
         self.max_episode_len = args.max_episode_len
+
+        self.burnin_size = args.burnin_size
+
+        self.update_rate = args.update_rate
+        self.target_update_rate = args.target_update_rate
         
         self.gamma = args.gamma
         self.tau = args.tau
@@ -26,8 +30,11 @@ class MADDPG:
         self.env = env
         self.agents = [ Agent(args, i) for i in range(self.n) ]
 
-        # TODO: check necessity
-        # self.args = args
+        self.train_critic_loss = []
+        self.train_actor_loss = []
+
+        self.eval_rate = args.evaluate_num_episodes
+
     
     def memory_burnin(self):
         start = time.time()
@@ -101,7 +108,9 @@ class MADDPG:
         return loss
 
     
-    def agent_update(self, agent_id):
+    def agent_update(self, agent_id, step):
+        if not step % self.update_rate == 0:
+            return 0., 0.
         # get minibatch sample
         minibatch = self.get_minibatch()
         # critic
@@ -114,19 +123,23 @@ class MADDPG:
         self.agents[agent_id].actor_optim.zero_grad()
         agent_actor_loss.backward()
         self.agents[agent_id].actor_optim.step()
-
+        
         return agent_critic_loss.item(), agent_actor_loss.item()
     
 
-    def agent_target_update(self, agent_id, tau):
+    def agent_target_update(self, agent_id, tau, step):
+        if not step % self.target_update_rate == 0:
+            return
         self.agents[agent_id].target_update(tau, is_actor=True)
         self.agents[agent_id].target_update(tau, is_actor=False)
 
 
     def train(self):
+        step = 0
+        total_critic_loss, total_actor_loss = 0., 0.
         for episode in range(self.num_episodes):
-            step = 0
             curr_obs_n = self.env.reset()
+            episode_len = 0
             while True:
                 act_n = [agent.get_action(curr_obs_n[i], is_target=False, is_argmax=True) for i, agent in enumerate(self.agents)]     
                 act_n = one_hot(act_n, self.act_dim)
@@ -135,31 +148,30 @@ class MADDPG:
                 # TODO: add noise
                 act_n = add_noise(act_n)
 
-                # BUG
-                done = all(done_n)
-                if not done:
-                    for i in range(self.n):
-                        self.agents[i].buffer.add(curr_obs_n[i], act_n[i], next_obs_n[i], reward_n[i], done_n[i])
-                    curr_obs_n = deepcopy(next_obs_n)
+                for i in range(self.n):
+                    self.agents[i].buffer.add(curr_obs_n[i], act_n[i], next_obs_n[i], reward_n[i], done_n[i])
+                curr_obs_n = deepcopy(next_obs_n)
 
                 step += 1
-                terminal = (step >= self.max_episode_len)
-
-                critic_loss_list, actor_loss_list = [], []
+                episode_len += 1
+                done = all(done_n)
+                terminal = (episode_len >= self.max_episode_len)
 
                 for i in range(self.n):
-                    critic_loss, actor_loss = self.agent_update(i)
-                    critic_loss_list.append(critic_loss)
-                    actor_loss_list.append(actor_loss)
+                    critic_loss, actor_loss = self.agent_update(i, step)
+                    total_critic_loss += critic_loss
+                    total_actor_loss  += actor_loss
                 
                 for i in range(self.n):
-                    self.agent_target_update(i, self.tau)
+                    self.agent_target_update(i, self.tau, step)
+            
+                        
+                if step % self.update_rate == 0:
+                    print(f'episode: {episode}\t step: {step}\t\t critic loss: {total_critic_loss}\t actor loss: {total_actor_loss}')
+                    total_critic_loss, total_actor_loss = 0., 0.
                 
                 if done or terminal:
-                    if episode % 1000 == 0:
-                        print(f'episode: {episode}, step: {step}\t\t critic loss: {np.sum(critic_loss_list)}\tactor loss: {np.sum(actor_loss_list)}')
                     break
-    
 
 
     def _location(self, idx, is_action=False):

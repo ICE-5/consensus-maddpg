@@ -38,7 +38,6 @@ class Actor(nn.Module):
         # network structure
         self.fc1 = nn.Linear(obs_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.out = nn.Linear(hidden_dim, act_dim)
 
     def forward(self, obs):
@@ -51,7 +50,6 @@ class Actor(nn.Module):
         obs
         x = self.mid_func(self.fc1(self.in_func(obs)))
         x = self.mid_func(self.fc2(x))
-        x = self.mid_func(self.fc3(x))
         out = self.out_func(self.out(x))
         return out
 
@@ -90,7 +88,6 @@ class Critic(nn.Module):
         # network structure
         self.fc1 = nn.Linear(obs_dim + act_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.out = nn.Linear(hidden_dim, 1)
 
     def forward(self, obs, act):
@@ -104,6 +101,5 @@ class Critic(nn.Module):
 
         x = self.mid_func(self.fc1(self.in_func(X)))
         x = self.mid_func(self.fc2(x))
-        x = self.mid_func(self.fc3(x))
         out = self.out_func(self.out(x))
         return out
