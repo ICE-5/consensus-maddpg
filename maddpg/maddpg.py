@@ -189,13 +189,14 @@ class MADDPG:
             episode_len = 0
             reward_frd, reward_adv, reward = 0., 0., 0.
             while True:
+                if self.args.render:
+                    self.env.render()
                 act_n = [self.agents[i].get_action(curr_obs_n[i], is_target=False, is_argmax=True) for i in range(self.n)]
                 act_n = one_hot(act_n, self.act_dim)
                 curr_obs_n, reward_n, done_n, _ = self.env.step(act_n)
-
                 # Assume first k are friends, then the rest are adversaries.
                 if self.args.num_adversaries != 0:
-                    reward_adv += sum(reward_n[self.args.num_friends + 1 :])
+                    reward_adv += sum(reward_n[self.args.num_friends:])
                 reward_frd += sum(reward_n[: self.args.num_friends + 1])
                 reward = reward_frd + reward_adv
 

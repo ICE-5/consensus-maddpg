@@ -23,9 +23,9 @@ class ReplayBuffer(object):
             list, int: list of sampled indices
         """        
         if self.num_transitions < batch_size:
-            idxs = np.random.choice(self.num_transitions, self.num_transitions)
+            idxs = np.random.choice(self.num_transitions, self.num_transitions, replace = False)
         else:
-            idxs = np.random.choice(self.num_transitions, batch_size)
+            idxs = np.random.choice(self.num_transitions, batch_size, replace = False)
         return idxs
     
 
