@@ -9,6 +9,8 @@ from .replay_buffer import ReplayBuffer
 
 class Agent:
     def __init__(self, args, agent_id):
+        self.device = args.device
+
         obs_dim = args.obs_dim_arr[agent_id]
         act_dim = args.act_dim
         obs_dim_n = np.sum(args.obs_dim_arr)
@@ -18,6 +20,11 @@ class Agent:
         self.critic = Critic(obs_dim_n, act_dim_n, hidden_dim=args.hidden_dim)
         self.target_actor = Actor(obs_dim, act_dim, hidden_dim=args.hidden_dim)
         self.target_critic = Critic(obs_dim_n, act_dim_n, hidden_dim=args.hidden_dim)
+
+        self.actor.to(args.device)
+        self.critic.to(args.device)
+        self.target_actor.to(args.device)
+        self.target_critic.to(args.device)
 
         self.target_actor.load_state_dict(self.actor.state_dict())
         self.target_critic.load_state_dict(self.critic.state_dict())
@@ -32,8 +39,11 @@ class Agent:
 
 
     def get_action(self, obs, is_target=False, is_argmax=False):
-        obs = torch.FloatTensor(obs)
-        
+        # import ipdb
+        # ipdb.set_trace()
+        # obs = torch.FloatTensor(obs)
+        obs = torch.FloatTensor(obs).to(self.device)
+
         # with torch.no_grad():
         if is_target:
             act = self.target_actor.forward(obs)
@@ -48,8 +58,10 @@ class Agent:
 
     
     def get_q(self, obs, act, is_target=False):
-        obs = torch.FloatTensor(obs)
-        act = torch.FloatTensor(act)
+        # obs = torch.FloatTensor(obs)
+        # act = torch.FloatTensor(act)
+        obs = torch.FloatTensor(obs).to(self.device)
+        act = torch.FloatTensor(act).to(self.device)
 
         # with torch.no_grad():
         if is_target:

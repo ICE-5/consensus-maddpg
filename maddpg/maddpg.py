@@ -12,6 +12,7 @@ from copy import deepcopy
 
 class MADDPG:
     def __init__(self, args, env):
+        args.device = torch.device('cuda' if torch.cuda.is_available() and args.device == "gpu" else 'cpu')
         self.args = args
         self.n = args.num_agents
         self.act_dim = args.act_dim
@@ -74,17 +75,16 @@ class MADDPG:
             
 
     def agent_critic_loss(self, agent_id, minibatch):
-        
         curr_obs_n, act_n, next_obs_n, reward_n, _ = minibatch
-        # y
-        ### o
         o = next_obs_n
-        ### a
         a = torch.empty((self.batch_size, self.n * self.act_dim))
+        reward_n = reward_n.to(self.args.device)
+        
         for i, agent in enumerate(self.agents):
             curr_obs = self._local_slice(i, curr_obs_n)
             act = agent.get_action(curr_obs, is_target=True, is_argmax=False)
             a = self._local_replace(i, act, a, is_action=True)
+
         y = self.agents[agent_id].get_q(o, a, is_target=True)
         y = self.gamma * y + reward_n[:, agent_id]
 
@@ -142,6 +142,7 @@ class MADDPG:
             curr_obs_n = self.env.reset()
             episode_len = 0
             while True:
+
                 act_n = [agent.get_action(curr_obs_n[i], is_target=False, is_argmax=True) for i, agent in enumerate(self.agents)]     
                 act_n = one_hot(act_n, self.act_dim)
                 next_obs_n, reward_n, done_n, _ = self.env.step(act_n)
@@ -172,6 +173,7 @@ class MADDPG:
                 
                 if done or terminal:
                     break
+
             if episode % self.args.evaluate_rate == 0:
                 r_avg, r_frd, r_adv = self.evaluate()
                 rewards.append(r_avg)

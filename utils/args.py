@@ -46,7 +46,7 @@ def get_args():
     parser.add_argument("--render", type=bool, default=False, help="Whether to render when evaluating")
 
     # Device
-    parser.add_argument("--device", type = str, default = "cpu", help = "Whether use GPU")
+    parser.add_argument("--device", type = str, default = "gpu", help = "Whether use GPU. Type 'gpu' or 'cpu'")
 
     args = parser.parse_args()
 

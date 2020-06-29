@@ -47,7 +47,6 @@ class Actor(nn.Module):
         Outputs:
             out (PyTorch Matrix): network output
         """
-        obs
         x = self.mid_func(self.fc1(self.in_func(obs)))
         x = self.mid_func(self.fc2(x))
         out = self.out_func(self.out(x))
