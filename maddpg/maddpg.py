@@ -27,6 +27,7 @@ class MADDPG:
 
         self.update_rate = args.update_rate
         self.target_update_rate = args.target_update_rate
+        self.noise_rate = args.noise_rate
         
         self.gamma = args.gamma
         self.tau = args.tau
@@ -140,13 +141,11 @@ class MADDPG:
             curr_obs_n = self.env.reset()
             episode_len = 0
             while True:
-
                 act_n = [agent.get_action(curr_obs_n[i], is_target=False, is_argmax=True) for i, agent in enumerate(self.agents)]     
                 act_n = one_hot(act_n, self.act_dim)
                 next_obs_n, reward_n, done_n, _ = self.env.step(act_n)
 
-                # TODO: add noise
-                act_n = add_noise(act_n)
+                act_n = add_noise(act_n, self.noise_rate)
 
                 for i in range(self.n):
                     self.agents[i].buffer.add(curr_obs_n[i], act_n[i], next_obs_n[i], reward_n[i], done_n[i])
@@ -173,7 +172,7 @@ class MADDPG:
                 
                 if done or terminal:
                     break
-
+            self.noise_rate = max(0.05, self.noise_rate - 1e-4)
             if episode % self.args.evaluate_rate == 0:
                 r_avg, r_frd, r_adv = self.evaluate()
                 rewards.append(r_avg)

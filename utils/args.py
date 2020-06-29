@@ -31,7 +31,6 @@ def get_args():
     parser.add_argument("--burnin-size", type=int, default=int(1e3), help="number of transitions to burnin")
     parser.add_argument("--batch-size", type=int, default=256, help="number of transitions to sample at each train")
     
-    
 
     # Checkpointing
     parser.add_argument("--save-dir", type=str, default="./model", help="directory in which training state and model should be saved")
