@@ -1,6 +1,10 @@
 # VSCode
 .vscode/
 
+# logs
+_log/sample.txt
+_log/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

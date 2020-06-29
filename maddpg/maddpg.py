@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 import os, time
 import numpy as np
 from tqdm import tqdm
@@ -11,7 +12,7 @@ from utils.helper import *
 from copy import deepcopy
 
 class MADDPG:
-    def __init__(self, args, env):
+    def __init__(self, args, env, writer=None):
         args.device = torch.device('cuda' if torch.cuda.is_available() and args.device == "gpu" else 'cpu')
         self.args = args
         self.n = args.num_agents
@@ -32,6 +33,7 @@ class MADDPG:
 
         self.env = env
         self.agents = [ Agent(args, i) for i in range(self.n) ]
+        self.writer = writer
 
         self.train_critic_loss = []
         self.train_actor_loss = []
@@ -110,9 +112,7 @@ class MADDPG:
         return loss
 
     
-    def agent_update(self, agent_id, step):
-        if not step % self.update_rate == 0:
-            return 0., 0.
+    def agent_update(self, agent_id):
         # get minibatch sample
         minibatch = self.get_minibatch()
         # critic
@@ -128,9 +128,7 @@ class MADDPG:
         return agent_critic_loss.item(), agent_actor_loss.item()
     
 
-    def agent_target_update(self, agent_id, tau, step):
-        if not step % self.target_update_rate == 0:
-            return
+    def agent_target_update(self, agent_id, tau):
         self.agents[agent_id].target_update(tau, is_actor=True)
         self.agents[agent_id].target_update(tau, is_actor=False)
 
@@ -159,17 +157,19 @@ class MADDPG:
                 done = all(done_n)
                 terminal = (episode_len >= self.max_episode_len)
 
-                for i in range(self.n):
-                    critic_loss, actor_loss = self.agent_update(i, step)
-                    total_critic_loss += critic_loss
-                    total_actor_loss  += actor_loss
-                
-                for i in range(self.n):
-                    self.agent_target_update(i, self.tau, step)
-
                 if step % self.update_rate == 0:
-                    # print(f'episode: {episode}\t step: {step}\t\t critic loss: {total_critic_loss}\t actor loss: {total_actor_loss}')
                     total_critic_loss, total_actor_loss = 0., 0.
+                    for i in range(self.n):
+                        critic_loss, actor_loss = self.agent_update(i)
+                        total_critic_loss += critic_loss
+                        total_actor_loss  += actor_loss
+                
+                    for i in range(self.n):
+                        self.agent_target_update(i, self.tau)
+                    
+                    # log to tensorboard
+                    self.writer.add_scalar('Loss/Critic loss', total_critic_loss, step)
+                    self.writer.add_scalar('Loss/Actor loss', total_actor_loss, step)
                 
                 if done or terminal:
                     break
@@ -179,6 +179,12 @@ class MADDPG:
                 rewards.append(r_avg)
                 rewards_frd.append(r_frd)
                 rewards_adv.append(r_adv)
+
+                # log to tensorboard
+                self.writer.add_scalar('Reward/Avg. reward', r_avg, episode)
+                self.writer.add_scalar('Reward/Friend reward', r_frd, episode)
+                self.writer.add_scalar('Reward/Adversary reward', r_adv, episode)
+
                 print(f"episode: {episode}\t total reward :{r_avg}\t friend reward :{r_frd}\t adv reward :{r_adv}")
 
     '''

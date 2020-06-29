@@ -30,7 +30,7 @@ class Agent:
         self.target_critic.load_state_dict(self.critic.state_dict())
 
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=args.lr_actor)
-        self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=args.lr_critic)  
+        self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=args.lr_critic)
 
         self.buffer = ReplayBuffer(args, obs_dim, act_dim)
 
