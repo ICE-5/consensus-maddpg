@@ -23,6 +23,7 @@ class Actor(nn.Module):
             out_func (PyTorch function): activation function for output layer
         """
         super(Actor, self).__init__()
+        self.normalize = normalize_input
 
         self.mid_func = mid_func
         self.out_func = out_func
@@ -32,8 +33,6 @@ class Actor(nn.Module):
             self.in_func = nn.BatchNorm1d(obs_dim)
             self.in_func.weight.data.fill_(1)
             self.in_func.bias.data.fill_(0)
-        else:
-            self.in_func = lambda x: x
 
         # network structure
         self.fc1 = nn.Linear(obs_dim, hidden_dim)
@@ -47,7 +46,7 @@ class Actor(nn.Module):
         Outputs:
             out (PyTorch Matrix): network output
         """
-        x = self.mid_func(self.fc1(self.in_func(obs)))
+        x = self.mid_func(self.fc1(self.in_func(obs))) if self.normalize else  self.mid_func(self.fc1(obs))
         x = self.mid_func(self.fc2(x))
         out = self.out_func(self.out(x))
         return out
@@ -61,7 +60,6 @@ class Critic(nn.Module):
     def __init__(self, obs_dim, act_dim, 
                     hidden_dim=64, 
                     mid_func=torch.relu,
-                    out_func=lambda x: x, 
                     normalize_input=False):
         """
         Inputs:
@@ -72,17 +70,15 @@ class Critic(nn.Module):
             out_func (PyTorch function): activation function for output layer
         """
         super(Critic, self).__init__()
+        self.normalize = normalize_input
 
         self.mid_func = mid_func
-        self.out_func = out_func
 
         # normalize input
         if normalize_input:
             self.in_func = nn.BatchNorm1d(obs_dim + act_dim)
             self.in_func.weight.data.fill_(1)
             self.in_func.bias.data.fill_(0)
-        else:
-            self.in_func = lambda x: x
 
         # network structure
         self.fc1 = nn.Linear(obs_dim + act_dim, hidden_dim)
@@ -98,7 +94,7 @@ class Critic(nn.Module):
         """
         X = torch.cat((obs, act), dim=-1)
 
-        x = self.mid_func(self.fc1(self.in_func(X)))
+        x = self.mid_func(self.fc1(self.in_func(X))) if self.normalize else self.mid_func(self.fc1(X))
         x = self.mid_func(self.fc2(x))
-        out = self.out_func(self.out(x))
+        out = self.out(x)
         return out

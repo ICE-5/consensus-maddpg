@@ -5,6 +5,9 @@
 _log/sample.txt
 _log/
 
+# Saved models
+model/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
