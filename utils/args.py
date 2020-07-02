@@ -5,6 +5,7 @@ def get_args():
     parser = argparse.ArgumentParser("Multi-agent reinforcement learning with actor-critic")
     # Environment
     parser.add_argument("--scenario-name", type=str, default="simple_tag", help="name of the scenario script")
+    # parser.add_argument("--scenario-name", type=str, default="adversarial", help="name of the scenario script")
     parser.add_argument("--max-episode-len", type=int, default=25, help="maximum episode length")
     parser.add_argument("--num-episodes", type=int, default=60000, help="number of episodes")
 
