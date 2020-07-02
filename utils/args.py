@@ -4,17 +4,31 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser("Multi-agent reinforcement learning with actor-critic")
     # Environment
-    parser.add_argument("--scenario-name", type=str, default="simple_tag", help="name of the scenario script")
-    # parser.add_argument("--scenario-name", type=str, default="adversarial", help="name of the scenario script")
+    # parser.add_argument("--scenario-name", type=str, default="simple_tag", help="name of the scenario script")
+    parser.add_argument("--scenario-name", type=str, default="food_collect", help="name of the scenario script")
+    parser.add_argument("--map-size", type=int, default=1,
+                        help="The size of the environment. 1 if normal and 2 otherwise. (default: normal)")
+    parser.add_argument("--num-episodes", type=int, default=20000, help="number of episodes")
     parser.add_argument("--max-episode-len", type=int, default=25, help="maximum episode length")
-    parser.add_argument("--num-episodes", type=int, default=60000, help="number of episodes")
+    parser.add_argument("--num-good", type=int, default=2, help="number of good agents in the scenario (default: 2)")
+    parser.add_argument("--num-adversaries", type=int, default=2,
+                        help=" number of adversaries in the environment (default: 2)")
+    parser.add_argument("--num-food", type=int, default=4,
+                        help="number of food(resources) in the scenario (default: 4)")
+    parser.add_argument("--sight", type=int, default=100, help="The agent's visibility radius. (default: 100)")
+    parser.add_argument("--alpha", type=float, default=0., help="Reward shared weight. (default: 0.0)")
+
 
     # Network config
+    parser.add_argument("--good-policy", type=str, default="maddpg",
+                        help="algorithm used for the 'good' (non adversary) policies in the environment"
+                             " (default: maddpg; options: {ddpg, maddpg, cmaddpgv1, cmaddpgv2})")
+    parser.add_argument("--adv-policy", type=str, default="maddpg",
+                        help="algorithm used for the adversary policies in the environment"
+                             " (default: maddpg; options: {ddpg, maddpg, cmaddpgv1, cmaddpgv2})")
     parser.add_argument("--hidden-dim", type=int, default=64, help="hidden layer dimension")
     parser.add_argument("--normalize-input", type=bool, default=True, help="whether to normalize input for network")
     parser.add_argument("--discrete-action", type=bool, default=False, help="whether to output discrete action")
-
-    parser.add_argument("--num-adversaries", type=int, default=1, help="number of adversaries, check MPE for specified info")
 
     # Core training parameters
     parser.add_argument("--lr-actor", type=float, default=1e-4, help="learning rate of actor")

@@ -38,9 +38,9 @@ class MADDPG:
         self.eval_rate = args.evaluate_num_episodes
         # Parameters for saveing/loading models
         self.path = args.save_dir
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-        self.load_models()
+        # if not os.path.exists(self.path):
+        #     os.makedirs(self.path)
+        # self.load_models()
 
     
     def memory_burnin(self):
@@ -188,8 +188,8 @@ class MADDPG:
 
                 print(f"episode: {episode}\t total reward :{r_avg}\t friend reward :{r_frd}\t adv reward :{r_adv}")
 
-            if episode % self.args.save_rate == 0:
-                self.save_models()
+            # if episode % self.args.save_rate == 0:
+            #     self.save_models()
 
 
     def save_models(self):

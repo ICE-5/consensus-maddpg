@@ -11,6 +11,8 @@ for all agents. Each element of the list should be a numpy array,
 of size (env.world.dim_p + env.world.dim_c, 1). Physical actions precede
 communication actions in this array. See environment.py for more details.
 """
+from mpe_local.multiagent.environment import MultiAgentEnv
+import mpe_local.multiagent.scenarios as scenarios
 
 def make_env(scenario_name, benchmark=False):
     '''
@@ -29,9 +31,7 @@ def make_env(scenario_name, benchmark=False):
         .action_space       :   Returns the action space for each agent
         .n                  :   Returns the number of Agents
     '''
-    from multiagent.environment import MultiAgentEnv
-    import multiagent.scenarios as scenarios
-    print('shabi')
+
     # load scenario from script
     scenario = scenarios.load(scenario_name + ".py").Scenario()
     # create world

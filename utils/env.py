@@ -8,7 +8,7 @@ import mpe_local.multiagent.scenarios as scenarios
 def make_env(args):
     # load scenario from script
 
-    scenario = scenarios.load(args.scenario_name + ".py").Scenario()
+    scenario = scenarios.load(args.scenario_name + ".py").Scenario(args)
 
     # env setup
     world = scenario.make_world()
