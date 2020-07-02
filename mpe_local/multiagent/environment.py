@@ -37,10 +37,6 @@ class MultiAgentEnv(gym.Env):
         self.force_discrete_action = world.discrete_action if hasattr(world, 'discrete_action') else False
         # if true, every agent has the same reward
         self.shared_reward = world.collaborative if hasattr(world, 'collaborative') else False
-        if hasattr(world, 'collaborative'):
-            print("collaborate!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        else:
-            print("not collaborate!!!!!!!!!!!!!!!!!!!!!!!!")
         self.time = 0
 
         self.export_episode = export_episode

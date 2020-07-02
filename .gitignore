@@ -5,6 +5,9 @@
 _log/sample.txt
 _log/
 
+# Original MPE
+mpe/
+
 # Saved models
 model/
 

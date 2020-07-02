@@ -4,8 +4,7 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser("Multi-agent reinforcement learning with actor-critic")
     # Environment
-    # parser.add_argument("--scenario-name", type=str, default="simple_tag", help="name of the scenario script")
-    parser.add_argument("--scenario-name", type=str, default="food_collect", help="name of the scenario script")
+    parser.add_argument("--scenario-name", type=str, default="adversarial", help="name of the scenario script")
     parser.add_argument("--map-size", type=int, default=1,
                         help="The size of the environment. 1 if normal and 2 otherwise. (default: normal)")
     parser.add_argument("--num-episodes", type=int, default=20000, help="number of episodes")
@@ -15,9 +14,12 @@ def get_args():
                         help=" number of adversaries in the environment (default: 2)")
     parser.add_argument("--num-food", type=int, default=4,
                         help="number of food(resources) in the scenario (default: 4)")
+    parser.add_argument("--num-forests", type=int, default=0,
+                        help="number of forest in the scenario (default: 0)")
+    parser.add_argument("--num-landmarks", type=int, default=0,
+                        help="number of landmarks in the scenario (default: 0)")
     parser.add_argument("--sight", type=int, default=100, help="The agent's visibility radius. (default: 100)")
     parser.add_argument("--alpha", type=float, default=0., help="Reward shared weight. (default: 0.0)")
-
 
     # Network config
     parser.add_argument("--good-policy", type=str, default="maddpg",

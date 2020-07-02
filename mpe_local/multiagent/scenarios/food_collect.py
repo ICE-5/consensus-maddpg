@@ -12,15 +12,15 @@ def softmax_dis(x):
     return dis_min
 
 class Scenario(BaseScenario):
-    def __init__(self, args,n_forests = 3, n_landmarks = 3, no_wheel = None):
+    def __init__(self, args, no_wheel = None):
         # Agent Setting
         self.n_good = args.num_good
         self.alpha = args.alpha
         self.sight = args.sight
         # Environment setting
-        self.n_landmarks = n_landmarks
+        self.n_landmarks = args.num_landmarks
         self.n_food = args.num_food
-        self.n_forests = n_forests
+        self.n_forests = args.num_forests
         self.no_wheel = no_wheel
 
     def make_world(self):

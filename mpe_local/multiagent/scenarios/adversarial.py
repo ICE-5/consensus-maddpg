@@ -6,16 +6,16 @@ import os
 SIGHT = 0.5
 
 class Scenario(BaseScenario):
-    def __init__(self, args, n_forests = 3, n_landmarks = 3, no_wheel = None):
+    def __init__(self, args, no_wheel = None):
         # Agent setting
         self.n_good = args.num_good
         self.n_adv = args.num_adversaries
         self.alpha = args.alpha
         self.sight = args.sight
         # Environment setting
-        self.n_forests = n_forests
+        self.n_forests = args.num_forests
         self.n_food = args.num_food
-        self.n_landmarks = n_landmarks
+        self.n_landmarks = args.num_landmarks
         self.no_wheel = no_wheel
 
     def make_world(self):
