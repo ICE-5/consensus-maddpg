@@ -1,9 +1,5 @@
-# Evaluate from MPE_Local environment
 from mpe_local.multiagent.environment import MultiAgentEnv
 import mpe_local.multiagent.scenarios as scenarios
-# Evaluate from original MPE environments
-# from mpe.multiagent.environment import MultiAgentEnv
-# import mpe.multiagent.scenarios as scenarios
 
 def make_env(args):
     # load scenario from script
@@ -20,6 +16,8 @@ def make_env(args):
     args.act_dim = env.action_space[0].n
 
     args.num_friends = args.num_agents - args.num_adversaries
+    args.policies = [args.good_policy for i in range(args.num_friends)]
+    args.policies.extend([args.adv_policy for i in range(args.num_adversaries)])
 
     # args.action_bound_max = 1
     # args.action_bound_min = -1

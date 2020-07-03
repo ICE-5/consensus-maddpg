@@ -23,12 +23,15 @@ class MADDPG:
         self.noise_rate = args.noise_rate
         # Parameters for network
         self.agents = [Agent(args, i) for i in range(self.n)]
+        self.K = args.common_agents
         self.batch_size = args.batch_size
         self.num_episodes = args.num_episodes
         self.max_episode_len = args.max_episode_len
         self.burnin_size = args.burnin_size
-        self.update_rate = args.update_rate
-        self.target_update_rate = args.target_update_rate
+        self.update_rate_maddpg = args.update_rate_maddpg
+        self.target_update_rate_maddpg = args.target_update_rate_maddpg
+        self.update_rate_consensus = args.update_rate_consensus
+        self.target_update_rate_consensus = args.target_update_rate_consensus
         self.gamma = args.gamma
         self.tau = args.tau
         # Parameters for evaluation
@@ -78,27 +81,52 @@ class MADDPG:
         return minibatch
             
 
-    def agent_critic_loss(self, agent_id, minibatch):
+    def maddpg_critic_loss(self, agent_id, minibatch):
         curr_obs_n, act_n, next_obs_n, reward_n, _ = minibatch
         o = next_obs_n
         a = torch.empty((self.batch_size, self.n * self.act_dim))
         reward_n = reward_n.to(self.args.device)
-        
+
         for i, agent in enumerate(self.agents):
             curr_obs = self._local_slice(i, curr_obs_n)
             act = agent.get_action(curr_obs, is_target=True, is_argmax=False)
             a = self._local_replace(i, act, a, is_action=True)
-
-        y = self.agents[agent_id].get_q(o, a, is_target=True)
+        y = self.agents[agent_id].get_q(o, a, is_target=True).squeeze()
         y = self.gamma * y + reward_n[:, agent_id]
 
         # calculate goal_y
         goal_o = curr_obs_n
         goal_a = act_n
-        goal_y = self.agents[agent_id].get_q(goal_o, goal_a, is_target=False)
-        
+        goal_y = self.agents[agent_id].get_q(goal_o, goal_a, is_target=False).squeeze()
+        # import ipdb
+        # ipdb.set_trace()
         return F.mse_loss(goal_y, y)
-    
+
+
+    def ddpg_critic_loss(self, agent_id, minibatch):
+        curr_obs_n, act_n, next_obs_n, reward_n, _ = minibatch
+        reward_n = reward_n.to(self.args.device)
+        o = self._local_slice(agent_id, curr_obs_n)
+        a = self._local_slice(agent_id, act_n, is_action = True)
+        reward = reward_n[:, agent_id]
+        o_next = self._local_slice(agent_id, next_obs_n)
+        a_next = self.agents[agent_id].get_action(o_next, is_target=True, is_argmax=False)
+        a_next = a_next.to("cpu")
+
+        y = self.agents[agent_id].get_q(o_next, a_next, is_target=True).squeeze()
+        y = self.gamma * y + reward
+
+        goal_y = self.agents[agent_id].get_q(o, a, is_target=False).squeeze()
+
+        return F.mse_loss(goal_y, y)
+
+
+    def agent_critic_loss(self, agent_id, minibatch):
+        if self.args.policies[agent_id] == "maddpg":
+            return self.maddpg_critic_loss(agent_id, minibatch)
+        elif self.args.policies[agent_id] == "ddpg":
+            return self.ddpg_critic_loss(agent_id, minibatch)
+
 
     def agent_actor_loss(self, agent_id, minibatch):
         curr_obs_n, act_n, _, _, _ = minibatch
@@ -109,11 +137,14 @@ class MADDPG:
         agent_curr_obs = self._local_slice(agent_id, curr_obs_n)
         agent_act = self.agents[agent_id].get_action(agent_curr_obs, is_target=False, is_argmax=False)
         a = self._local_replace(agent_id, agent_act, a, is_action=True)
-
+        # import ipdb
+        # ipdb.set_trace()
+        if self.args.policies[agent_id] == "ddpg":
+            o = agent_curr_obs
+            a = self._local_slice(agent_id, act_n, is_action=True)
         loss = - self.agents[agent_id].get_q(o, a, is_target=False).mean()
         return loss
 
-    
     def agent_update(self, agent_id):
         # get minibatch sample
         minibatch = self.get_minibatch()
@@ -128,15 +159,19 @@ class MADDPG:
         agent_actor_loss.backward()
         self.agents[agent_id].actor_optim.step()
         return agent_critic_loss.item(), agent_actor_loss.item()
-    
 
     def agent_target_update(self, agent_id, tau):
         self.agents[agent_id].target_update(tau, is_actor=True)
         self.agents[agent_id].target_update(tau, is_actor=False)
 
+    def consensus_update(self, agent_id):
+        pass
+
+    def consensus_target_update(self, agent_id, tau):
+        pass
+
     def train(self):
         step = 0
-        total_critic_loss, total_actor_loss = 0., 0.
         rewards, rewards_frd, rewards_adv = [], [], []
 
         for episode in tqdm(range(self.num_episodes)):
@@ -158,19 +193,24 @@ class MADDPG:
                 done = all(done_n)
                 terminal = (episode_len >= self.max_episode_len)
 
-                if step % self.update_rate == 0:
+                if step % self.update_rate_maddpg == 0:
                     total_critic_loss, total_actor_loss = 0., 0.
                     for i in range(self.n):
                         critic_loss, actor_loss = self.agent_update(i)
                         total_critic_loss += critic_loss
                         total_actor_loss  += actor_loss
 
-                    for i in range(self.n):
-                        self.agent_target_update(i, self.tau)
-
                     # log to tensorboard
                     self.writer.add_scalar('Loss/Critic loss', total_critic_loss, step)
                     self.writer.add_scalar('Loss/Actor loss', total_actor_loss, step)
+
+                if step % self.target_update_rate_maddpg:
+                    for i in range(self.n):
+                        self.agent_target_update(i, self.tau)
+
+                if step % self.update_rate_consensus == 0:
+                    pass
+
 
                 if done or terminal:
                     break

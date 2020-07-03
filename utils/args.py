@@ -28,6 +28,7 @@ def get_args():
     parser.add_argument("--adv-policy", type=str, default="maddpg",
                         help="algorithm used for the adversary policies in the environment"
                              " (default: maddpg; options: {ddpg, maddpg, cmaddpgv1, cmaddpgv2})")
+    parser.add_argument("--common-agents", type=float, default=3, help="K in consensus MADDPG algorithm. K should be at least 3.")
     parser.add_argument("--hidden-dim", type=int, default=64, help="hidden layer dimension")
     parser.add_argument("--normalize-input", type=bool, default=True, help="whether to normalize input for network")
     parser.add_argument("--discrete-action", type=bool, default=False, help="whether to output discrete action")
@@ -39,8 +40,11 @@ def get_args():
     parser.add_argument("--noise-rate", type=float, default=0.1, help="noise rate for sampling from a standard normal distribution ")
     parser.add_argument("--gamma", type=float, default=0.95, help="discount factor")
     parser.add_argument("--tau", type=float, default=0.01, help="parameter for updating the target network")
-    parser.add_argument("--update-rate", type=int, default=100, help="num of steps between each target update")
-    parser.add_argument("--target-update-rate", type=int, default=500, help="num of steps between each target update")
+    parser.add_argument("--update-rate-maddpg", type=int, default=100, help="num of steps between each network update")
+    parser.add_argument("--target-update-rate-maddpg", type=int, default=500, help="num of steps between each target update")
+    parser.add_argument("--update-rate-consensus", type=int, default=50, help="num of steps between each consensus netwrok update")
+    parser.add_argument("--target-update-rate-consensus", type=int, default=500,
+                        help="num of steps between each consensus target update")
 
 
     # Replay buffer and sample

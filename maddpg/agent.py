@@ -13,8 +13,13 @@ class Agent:
 
         obs_dim = args.obs_dim_arr[agent_id]
         act_dim = args.act_dim
-        obs_dim_n = np.sum(args.obs_dim_arr)
-        act_dim_n = act_dim * args.num_agents
+        policy = args.policies[agent_id]
+        if policy == "ddpg":
+            obs_dim_n = obs_dim
+            act_dim_n = act_dim
+        else:
+            obs_dim_n = np.sum(args.obs_dim_arr)
+            act_dim_n = act_dim * args.num_agents
 
         self.actor = Actor(obs_dim, act_dim, hidden_dim=args.hidden_dim)
         self.critic = Critic(obs_dim_n, act_dim_n, hidden_dim=args.hidden_dim)
@@ -39,27 +44,19 @@ class Agent:
 
 
     def get_action(self, obs, is_target=False, is_argmax=False):
-        # import ipdb
-        # ipdb.set_trace()
-        # obs = torch.FloatTensor(obs)
         obs = torch.FloatTensor(obs).to(self.device)
-
-        # with torch.no_grad():
         if is_target:
             act = self.target_actor.forward(obs)
         else:
             act = self.actor.forward(obs)
         softmax = torch.nn.Softmax(0)
         act = softmax(act)
-
         if is_argmax:
             act = torch.argmax(act)
         return act
 
     
     def get_q(self, obs, act, is_target=False):
-        # obs = torch.FloatTensor(obs)
-        # act = torch.FloatTensor(act)
         obs = torch.FloatTensor(obs).to(self.device)
         act = torch.FloatTensor(act).to(self.device)
 
