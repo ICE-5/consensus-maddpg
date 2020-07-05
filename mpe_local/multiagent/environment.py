@@ -226,7 +226,7 @@ class MultiAgentEnv(gym.Env):
         ret = []
         # print(len(memory))
         for i, world in enumerate(memory):
-            print("step {}".format(i))
+            # print("step {}".format(i))
             ret.append(self.render(mode=mode, world=world)[0])
         return ret
 
@@ -257,7 +257,6 @@ class MultiAgentEnv(gym.Env):
                     else:
                         word = alphabet[np.argmax(other.state.c)]
                     message += (other.name + ' to ' + agent.name + ': ' + word + '   ')
-            # print(message)
 
         for i in range(len(self.viewers)):
             # create viewers (if necessary)
@@ -318,7 +317,7 @@ class MultiAgentEnv(gym.Env):
             self.viewers[i].set_bounds(pos[0]-cam_range,pos[0]+cam_range,pos[1]-cam_range,pos[1]+cam_range)
             # update geometry positions
             for e, entity in enumerate(world.entities):
-                print(entity, *entity.state.p_pos)
+                # print(entity, *entity.state.p_pos)
                 self.render_geoms_xform[e].set_translation(*entity.state.p_pos)
                 geom = self.render_geoms[e]
                 if 'agent' in entity.name:

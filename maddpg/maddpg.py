@@ -7,6 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 from .agent import Agent
+from .consensus import Consensus
 from .replay_buffer import ReplayBuffer
 from utils.helper import *
 from copy import deepcopy
@@ -21,7 +22,7 @@ class MADDPG:
         self.act_dim = args.act_dim
         self.obs_dim_arr = args.obs_dim_arr
         self.noise_rate = args.noise_rate
-        # Parameters for network
+        # Parameters for MADDPG network
         self.agents = [Agent(args, i) for i in range(self.n)]
         self.K = args.common_agents
         self.batch_size = args.batch_size
@@ -34,6 +35,8 @@ class MADDPG:
         self.target_update_rate_consensus = args.target_update_rate_consensus
         self.gamma = args.gamma
         self.tau = args.tau
+        # Parameters for consensus networks
+        self.cons = [Consensus(args) for _ in range(args.num_team)]
         # Parameters for evaluation
         self.writer = writer
         self.train_critic_loss = []
@@ -45,7 +48,6 @@ class MADDPG:
         #     os.makedirs(self.path)
         # self.load_models()
 
-    
     def memory_burnin(self):
         start = time.time()
         print(f'-----> replay buffer. start burn-in memory.')
@@ -68,107 +70,6 @@ class MADDPG:
                 if done or counter >= self.burnin_size:
                     break
         print(f'-----> replay buffer. finish burn-in memory.\t\tburn-in size: {counter}\ttime: {time.time()-start}')
-
-
-    def get_minibatch(self):
-        idxs = self.agents[0].buffer.sample_minibatch(self.batch_size)
-        for idx, agent in enumerate(self.agents):
-            component = agent.buffer.get_minibatch_component(idxs)
-            if idx==0:
-                minibatch = component
-            else:
-                minibatch = [ torch.cat((item, component[i]), dim=1) for i, item in enumerate(minibatch) ]
-        return minibatch
-            
-
-    def maddpg_critic_loss(self, agent_id, minibatch):
-        curr_obs_n, act_n, next_obs_n, reward_n, _ = minibatch
-        o = next_obs_n
-        a = torch.empty((self.batch_size, self.n * self.act_dim))
-        reward_n = reward_n.to(self.args.device)
-
-        for i, agent in enumerate(self.agents):
-            curr_obs = self._local_slice(i, curr_obs_n)
-            act = agent.get_action(curr_obs, is_target=True, is_argmax=False)
-            a = self._local_replace(i, act, a, is_action=True)
-        y = self.agents[agent_id].get_q(o, a, is_target=True).squeeze()
-        y = self.gamma * y + reward_n[:, agent_id]
-
-        # calculate goal_y
-        goal_o = curr_obs_n
-        goal_a = act_n
-        goal_y = self.agents[agent_id].get_q(goal_o, goal_a, is_target=False).squeeze()
-        # import ipdb
-        # ipdb.set_trace()
-        return F.mse_loss(goal_y, y)
-
-
-    def ddpg_critic_loss(self, agent_id, minibatch):
-        curr_obs_n, act_n, next_obs_n, reward_n, _ = minibatch
-        reward_n = reward_n.to(self.args.device)
-        o = self._local_slice(agent_id, curr_obs_n)
-        a = self._local_slice(agent_id, act_n, is_action = True)
-        reward = reward_n[:, agent_id]
-        o_next = self._local_slice(agent_id, next_obs_n)
-        a_next = self.agents[agent_id].get_action(o_next, is_target=True, is_argmax=False)
-        a_next = a_next.to("cpu")
-
-        y = self.agents[agent_id].get_q(o_next, a_next, is_target=True).squeeze()
-        y = self.gamma * y + reward
-
-        goal_y = self.agents[agent_id].get_q(o, a, is_target=False).squeeze()
-
-        return F.mse_loss(goal_y, y)
-
-
-    def agent_critic_loss(self, agent_id, minibatch):
-        if self.args.policies[agent_id] == "maddpg":
-            return self.maddpg_critic_loss(agent_id, minibatch)
-        elif self.args.policies[agent_id] == "ddpg":
-            return self.ddpg_critic_loss(agent_id, minibatch)
-
-
-    def agent_actor_loss(self, agent_id, minibatch):
-        curr_obs_n, act_n, _, _, _ = minibatch
-        ### o
-        o = curr_obs_n
-        ### a
-        a = act_n
-        agent_curr_obs = self._local_slice(agent_id, curr_obs_n)
-        agent_act = self.agents[agent_id].get_action(agent_curr_obs, is_target=False, is_argmax=False)
-        a = self._local_replace(agent_id, agent_act, a, is_action=True)
-        # import ipdb
-        # ipdb.set_trace()
-        if self.args.policies[agent_id] == "ddpg":
-            o = agent_curr_obs
-            a = self._local_slice(agent_id, act_n, is_action=True)
-        loss = - self.agents[agent_id].get_q(o, a, is_target=False).mean()
-        return loss
-
-    def agent_update(self, agent_id):
-        # get minibatch sample
-        minibatch = self.get_minibatch()
-        # critic
-        agent_critic_loss = self.agent_critic_loss(agent_id, minibatch)
-        self.agents[agent_id].critic_optim.zero_grad()
-        agent_critic_loss.backward()
-        self.agents[agent_id].critic_optim.step()
-        # actor
-        agent_actor_loss = self.agent_actor_loss(agent_id, minibatch)
-        self.agents[agent_id].actor_optim.zero_grad()
-        agent_actor_loss.backward()
-        self.agents[agent_id].actor_optim.step()
-        return agent_critic_loss.item(), agent_actor_loss.item()
-
-    def agent_target_update(self, agent_id, tau):
-        self.agents[agent_id].target_update(tau, is_actor=True)
-        self.agents[agent_id].target_update(tau, is_actor=False)
-
-    def consensus_update(self, agent_id):
-        pass
-
-    def consensus_target_update(self, agent_id, tau):
-        pass
 
     def train(self):
         step = 0
@@ -209,8 +110,14 @@ class MADDPG:
                         self.agent_target_update(i, self.tau)
 
                 if step % self.update_rate_consensus == 0:
-                    pass
+                    total_cons_loss = 0.
+                    for i in range(self.args.num_team):
+                        total_cons_loss += self.consensus_update(i)
+                    self.writer.add_scalar('Consensus loss', total_cons_loss, step)
 
+                if step % self.target_update_rate_consensus:
+                    for i in range(self.args.num_team):
+                        self.consensus_target_update(i, tau = self.tau)
 
                 if done or terminal:
                     break
@@ -230,29 +137,6 @@ class MADDPG:
 
             # if episode % self.args.save_rate == 0:
             #     self.save_models()
-
-
-    def save_models(self):
-        path_root = self.path
-        for idx, agent in enumerate(self.agents):
-            path = os.path.join(path_root, "agent"+str(idx))
-            if not os.path.exists((path)):
-                os.makedirs(path)
-            torch.save(agent.critic.state_dict(), os.path.join(path, "critic.pt"))
-            torch.save(agent.target_critic.state_dict(), os.path.join(path, "t_critic"))
-            torch.save(agent.actor.state_dict(), os.path.join(path, "actor"))
-            torch.save(agent.target_actor.state_dict(), os.path.join(path, "t_actor"))
-
-    def load_models(self):
-        path_root = self.path
-        for idx, agent in enumerate(self.agents):
-            path = os.path.join(path_root, "agent" + str(idx))
-            if not os.path.exists(path):
-                continue
-            agent.critic.load_state_dict(torch.load(os.path.join(path, "critic")))
-            agent.target_critic.load_state_dict(torch.load(os.path.join(path, "t_critic")))
-            agent.actor.load_state_dict(torch.load(os.path.join(path, "actor")))
-            agent.target_actor.load_state_dict(torch.load(os.path.join(path, "t_actor")))
 
     def evaluate(self):
         '''
@@ -289,6 +173,157 @@ class MADDPG:
                sum(rewards_frd) / (self.args.evaluate_num_episodes * self.args.num_friends), \
                sum(rewards_adv) / (self.args.evaluate_num_episodes * self.args.num_adversaries)
 
+    def get_minibatch(self, cons = False, group = 0):
+        idxs = self.agents[0].buffer.sample_minibatch(self.batch_size)
+        if cons:
+            agent_idxs = self._sub_agent_idx(group)
+            agents = [self.agents[i] for i in agent_idxs]
+        else:
+            agents = self.agents
+            agent_idxs = []
+        for idx, agent in enumerate(agents):
+            component = agent.buffer.get_minibatch_component(idxs)
+            if idx==0:
+                minibatch = component
+            else:
+                minibatch = [ torch.cat((item, component[i]), dim=1) for i, item in enumerate(minibatch) ]
+        return minibatch, agent_idxs
+
+    def agent_actor_loss_helper(self, agent_id, minibatch):
+        curr_obs_n, act_n, _, _, _ = minibatch
+        ### o
+        o = curr_obs_n
+        ### a
+        a = act_n
+        agent_curr_obs = self._local_slice(agent_id, curr_obs_n)
+        agent_act = self.agents[agent_id].get_action(agent_curr_obs, is_target=False, is_argmax=False)
+        a = self._local_replace(agent_id, agent_act, a, is_action=True)
+        if self.args.policies[agent_id] == "ddpg":
+            o = agent_curr_obs
+            a = self._local_slice(agent_id, act_n, is_action=True)
+        loss = - self.agents[agent_id].get_q(o, a, is_target=False).mean()
+        return loss
+
+    def consensus_actor_loss_helper(self, agent_id, minibatch):
+        group = 0 if agent_id < self.args.num_friends else 1
+        o_com, a_com = self._reorder_batch(minibatch, agent_id, group)
+        loss = - self.cons[group].get_q(o_com, a_com, is_target=False).mean()
+        return loss
+
+    def agent_actor_loss(self, agent_id, minibatch):
+        l1 = self.agent_actor_loss_helper(agent_id, minibatch)
+        if self.args.use_common:
+            l2 = self.consensus_actor_loss_helper(agent_id, minibatch)
+            loss = l1 * self.args.beta + l2 * (1-self.args.beta)
+            return loss
+        return l1
+
+    def agent_critic_loss(self, agent_id, minibatch):
+        if self.args.policies[agent_id] == "maddpg":
+            return self.maddpg_critic_loss(agent_id, minibatch)
+        elif self.args.policies[agent_id] == "ddpg":
+            return self.ddpg_critic_loss(agent_id, minibatch)
+
+    def agent_update(self, agent_id):
+        # get minibatch sample
+        minibatch, _ = self.get_minibatch()
+        # critic
+        agent_critic_loss = self.agent_critic_loss(agent_id, minibatch)
+        self.agents[agent_id].critic_optim.zero_grad()
+        agent_critic_loss.backward()
+        self.agents[agent_id].critic_optim.step()
+        # actor
+        agent_actor_loss = self.agent_actor_loss(agent_id, minibatch)
+        self.agents[agent_id].actor_optim.zero_grad()
+        agent_actor_loss.backward()
+        self.agents[agent_id].actor_optim.step()
+        return agent_critic_loss.item(), agent_actor_loss.item()
+
+    def agent_target_update(self, agent_id, tau):
+        self.agents[agent_id].target_update(tau, is_actor=True)
+        self.agents[agent_id].target_update(tau, is_actor=False)
+
+    def maddpg_critic_loss(self, agent_id, minibatch):
+        curr_obs_n, act_n, next_obs_n, reward_n, _ = minibatch
+        o = next_obs_n
+        a = torch.empty((self.batch_size, self.n * self.act_dim))
+        reward_n = reward_n.to(self.args.device)
+
+        for i, agent in enumerate(self.agents):
+            curr_obs = self._local_slice(i, curr_obs_n)
+            act = agent.get_action(curr_obs, is_target=True, is_argmax=False)
+            a = self._local_replace(i, act, a, is_action=True)
+        y = self.agents[agent_id].get_q(o, a, is_target=True).squeeze()
+        y = self.gamma * y + reward_n[:, agent_id]
+
+        # calculate goal_y
+        goal_o = curr_obs_n
+        goal_a = act_n
+        goal_y = self.agents[agent_id].get_q(goal_o, goal_a, is_target=False).squeeze()
+        return F.mse_loss(goal_y, y)
+
+    def ddpg_critic_loss(self, agent_id, minibatch):
+        curr_obs_n, act_n, next_obs_n, reward_n, _ = minibatch
+        reward_n = reward_n.to(self.args.device)
+        o = self._local_slice(agent_id, curr_obs_n)
+        a = self._local_slice(agent_id, act_n, is_action = True)
+        reward = reward_n[:, agent_id]
+        o_next = self._local_slice(agent_id, next_obs_n)
+        a_next = self.agents[agent_id].get_action(o_next, is_target=True, is_argmax=False)
+        a_next = a_next.to("cpu")
+
+        y = self.agents[agent_id].get_q(o_next, a_next, is_target=True).squeeze()
+        y = self.gamma * y + reward
+
+        goal_y = self.agents[agent_id].get_q(o, a, is_target=False).squeeze()
+
+        return F.mse_loss(goal_y, y)
+
+    def consensus_critic_loss(self, group, minibatch, sub_idxs):
+        o_com, a_com, o_com_next, r_com, _ = minibatch
+        r_com = r_com.to(self.args.device)
+        a_com_next = torch.empty((self.batch_size, self.K * self.act_dim))
+        for i, idx in enumerate(sub_idxs):
+            o = self._local_slice(i, o_com)
+            a = self.agents[idx].get_action(o, is_target=True, is_argmax=False)
+            a_com_next = self._local_replace(i, a, a_com_next, is_action = True)
+        y = self.cons[group].get_q(o_com_next, a_com_next).squeeze()
+        y = y * self.gamma + r_com[:, 0]
+        y_goal = self.cons[group].get_q(o_com, a_com).squeeze()
+        return F.mse_loss(y_goal, y)
+
+    def consensus_update(self, group = 0):
+        minibatch, sub_idx = self.get_minibatch(cons=True, group = group)
+        critic_loss = self.consensus_critic_loss(group, minibatch, sub_idx)
+        self.cons[group].critic_optim.zero_grad()
+        critic_loss.backward()
+        self.cons[group].critic_optim.step()
+        return critic_loss.item()
+
+    def consensus_target_update(self, group, tau):
+        self.cons[group].target_update(tau)
+
+    def save_models(self):
+        path_root = self.path
+        for idx, agent in enumerate(self.agents):
+            path = os.path.join(path_root, "agent"+str(idx))
+            if not os.path.exists((path)):
+                os.makedirs(path)
+            torch.save(agent.critic.state_dict(), os.path.join(path, "critic.pt"))
+            torch.save(agent.target_critic.state_dict(), os.path.join(path, "t_critic"))
+            torch.save(agent.actor.state_dict(), os.path.join(path, "actor"))
+            torch.save(agent.target_actor.state_dict(), os.path.join(path, "t_actor"))
+
+    def load_models(self):
+        path_root = self.path
+        for idx, agent in enumerate(self.agents):
+            path = os.path.join(path_root, "agent" + str(idx))
+            if not os.path.exists(path):
+                continue
+            agent.critic.load_state_dict(torch.load(os.path.join(path, "critic")))
+            agent.target_critic.load_state_dict(torch.load(os.path.join(path, "t_critic")))
+            agent.actor.load_state_dict(torch.load(os.path.join(path, "actor")))
+            agent.target_actor.load_state_dict(torch.load(os.path.join(path, "t_actor")))
 
     def _location(self, idx, is_action=False):
         if is_action:
@@ -299,7 +334,6 @@ class MADDPG:
             e = np.sum(self.obs_dim_arr[ : (idx+1)])
         return int(s), int(e)
 
-
     def _local_slice(self, idx, target, is_action=False, is_batch=True):
         s, e = self._location(idx, is_action=is_action)
         if is_batch:
@@ -307,7 +341,6 @@ class MADDPG:
         else:
             return target[s:e]
         
-
     def _local_replace(self, idx, source, target, is_action=False, is_batch=True):
         s, e = self._location(idx, is_action=is_action)
         if is_batch:
@@ -316,11 +349,50 @@ class MADDPG:
             target[s:e] = source
         return target
 
+    def _reorder_batch(self, minibatch, agentid, group):
+        """
+        Given a minibatch, generate a sub minibatch with K agents.
+        First K//2 are friends and rest are adv.
+        Also, the first agent here correspond to agent id.
+        """
+        sub_idx = self._sub_agent_idx(group, agentid = agentid)
+        o_n, a_n, _, _, _ = minibatch
+        a_com = torch.empty((self.batch_size, self.K * self.act_dim))
+        o_com = torch.empty((self.batch_size, self.K * self.obs_dim_arr[0]))
 
-            
-    
-                
-                
+        for idx, agentid in enumerate(sub_idx):
+            o = self._local_slice(agentid, o_n, is_action=False, is_batch=True)
+            a = self._local_slice(agentid, a_n, is_action=True, is_batch=True)
+            a_com = self._local_replace(idx, a, a_com, is_action=True)
+            o_com = self._local_replace(idx, o, o_com, is_action=False)
+        o = self._local_slice(idx = 0, target = o_com, is_action=False, is_batch=True)
+        a = self.agents[agentid].get_action(obs = o, is_target=True, is_argmax=False)
+        a_com = self._local_replace(0, a, a_com, is_action=True)
+        return o_com, a_com
 
-
-
+    def _sub_agent_idx(self, group, agentid = -1):
+        """
+        Given current group, generate a random array with size K. First k/2 elements are index for group(sent as parameter),
+         the rest are for the other group. This can make sure current group will always occupy the front part of the index.
+        """
+        num_group1 = self.K // 2
+        num_group2 = self.K - num_group1
+        num_friends, num_adv = self.args.num_friends, self.args.num_adversaries
+        sub_idx1 = np.random.choice(num_friends, num_group1, replace = False)
+        sub_idx2 = np.random.choice(num_adv, num_group2, replace = False)
+        if group == 0:
+            sub_idx2 += num_friends
+            sub_idx = np.append(sub_idx1, sub_idx2)
+        else:
+            sub_idx1 += num_adv
+            sub_idx = np.append(sub_idx2, sub_idx1)
+        sub_idx = sub_idx.tolist()
+        if agentid != -1:
+            if agentid in sub_idx:
+                i = sub_idx.index(agentid)
+                t = sub_idx[0]
+                sub_idx[0] = agentid
+                sub_idx[i] = t
+            else:
+                sub_idx[0] = agentid
+        return sub_idx

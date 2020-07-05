@@ -40,8 +40,8 @@ class Scenario(BaseScenario):
             agent.collide = True
             agent.silent = True
             agent.adversary = True if i < num_adversaries else False
-            agent.size = 0.08 if agent.adversary else 0.08
-            agent.accel = 4.0 if agent.adversary else 4.0
+            agent.size = 0.03 if agent.adversary else 0.03
+            agent.accel = 2.0 if agent.adversary else 2.0
             if agent.adversary:
                 agent.showmore = np.zeros(num_good_agents)
             else:
@@ -79,7 +79,7 @@ class Scenario(BaseScenario):
             landmark.name = 'food %d' % i
             landmark.collide = False
             landmark.movable = False
-            landmark.size = 0.03
+            landmark.size = 0.02
             landmark.boundary = False
         world.forests = [Landmark() for i in range(num_forests)]
         for i, landmark in enumerate(world.forests):

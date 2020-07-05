@@ -18,7 +18,10 @@ def make_env(args):
     args.num_friends = args.num_agents - args.num_adversaries
     args.policies = [args.good_policy for i in range(args.num_friends)]
     args.policies.extend([args.adv_policy for i in range(args.num_adversaries)])
-
+    if args.scenario_name in ["grassland"]:
+        args.num_team = 1
+    else:
+        args.num_team = 2
     # args.action_bound_max = 1
     # args.action_bound_min = -1
 
